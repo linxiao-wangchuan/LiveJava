@@ -1,0 +1,51 @@
+/* ============================================================
+   Light Theme — 亮色主题
+   ============================================================ */
+
+[data-theme="light"] {
+  --bg-primary:    #ffffff;
+  --bg-secondary:  #f5f5f5;
+  --bg-tertiary:   #e8e8e8;
+  --bg-input:      #fafafa;
+  --bg-hover:      #e0e0e0;
+  --bg-active:     #d6d6d6;
+
+  --border:        #d4d4d4;
+  --border-light:  #bbb;
+
+  --text:          #333333;
+  --text-dim:      #888888;
+  --text-bright:   #111111;
+
+  --accent:        #16825d;
+  --accent2:       #0366d6;
+  --red:           #cf222e;
+  --green:         #1a7f37;
+  --yellow:        #9a6700;
+  --orange:        #bc4c00;
+
+  --btn-bg:        #e8e8e8;
+  --btn-hover:     #ddd;
+  --btn-border:    #ccc;
+
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-track: #f0f0f0;
+
+  --sidebar-bg:    #f3f3f3;
+  --tab-active-bg: #ffffff;
+  --tab-inactive-bg: #e8e8e8;
+  --toolbar-bg:    #ececec;
+}
+
+/* CodeMirror light theme override (Monokai is dark-only, switch to default) */
+[data-theme="light"] .CodeMirror {
+  background: #ffffff !important;
+  color: #333333 !important;
+}
+[data-theme="light"] .CodeMirror-gutters {
+  background: #f7f7f7 !important;
+  border-right: 1px solid #ddd !important;
+}
+[data-theme="light"] .CodeMirror-linenumber {
+  color: #999 !important;
+}

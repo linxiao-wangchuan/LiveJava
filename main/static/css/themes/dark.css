@@ -1,0 +1,38 @@
+/* ============================================================
+   Dark Theme — 暗色主题（默认，保持现有专业风格）
+   ============================================================ */
+
+[data-theme="dark"] {
+  --bg-primary:    #1e1e1e;
+  --bg-secondary:  #252526;
+  --bg-tertiary:   #2d2d2d;
+  --bg-input:      #1a1a1a;
+  --bg-hover:      #333;
+  --bg-active:     #37373d;
+
+  --border:        #3e3e42;
+  --border-light:  #444;
+
+  --text:          #d4d4d4;
+  --text-dim:      #8a8a8a;
+  --text-bright:   #ffffff;
+
+  --accent:        #4ec9b0;
+  --accent2:       #569cd6;
+  --red:           #f44747;
+  --green:         #6a9955;
+  --yellow:        #dcdcaa;
+  --orange:        #ce9178;
+
+  --btn-bg:        #333;
+  --btn-hover:     #444;
+  --btn-border:    #444;
+
+  --scrollbar-thumb: #424242;
+  --scrollbar-track: #1a1a1a;
+
+  --sidebar-bg:    #1e1e1e;
+  --tab-active-bg: #1e1e1e;
+  --tab-inactive-bg: #2d2d2d;
+  --toolbar-bg:    #323233;
+}

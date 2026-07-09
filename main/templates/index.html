@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Java 本地运行服务器</title>
+
+<!-- CodeMirror 5 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/monokai.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+
+<!-- 主题 -->
+<link rel="stylesheet" href="/static/css/themes/dark.css">
+<link rel="stylesheet" href="/static/css/themes/light.css">
+<!-- 主样式 -->
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ═══ 顶部栏 ═══ -->
+<header id="toolbar">
+  <span class="brand">Java 本地运行服务器</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <button class="icon-btn" id="btn_toggle_sidebar_top" title="显示/隐藏侧栏">☰</button>
+    <button class="icon-btn" id="btn_theme" title="切换主题">🌓</button>
+    <button class="icon-btn" id="btn_open_settings" title="设置">⚙</button>
+    <span class="java-ver" id="java_version">...</span>
+    <span class="status ready" id="status_indicator">● 就绪</span>
+  </div>
+  <span class="hint">Ctrl+Enter 运行 | Ctrl+C 停止 | Ctrl+L 清空</span>
+</header>
+
+<!-- ═══ 主布局 ═══ -->
+<div id="main_container">
+
+  <!-- ─── 左侧栏（可折叠） ─── -->
+  <aside id="sidebar" class="collapsed">
+    <div class="sidebar-header">
+      <span class="sidebar-title">项目浏览</span>
+      <button class="icon-btn" id="btn_toggle_sidebar" title="折叠侧栏">◀</button>
+    </div>
+
+    <!-- 模式选择 -->
+    <div class="mode-selector">
+      <div class="mode-label">运行模式</div>
+      <label class="mode-option">
+        <input type="radio" name="work_mode" value="temp_single" checked>
+        <span>临时单文件</span>
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="work_mode" value="temp_multi">
+        <span>临时多文件</span>
+      </label>
+      <label class="mode-option">
+        <input type="radio" name="work_mode" value="project">
+        <span>项目开发</span>
+      </label>
+    </div>
+
+    <!-- 自动包装开关（每个模式独立） -->
+    <div class="mode-selector">
+      <div class="mode-label">自动包装</div>
+      <label class="mode-option" id="wrap_single_label">
+        <input type="checkbox" id="wrap_single" checked>
+        <span>临时单文件</span>
+      </label>
+      <label class="mode-option" id="wrap_multi_label">
+        <input type="checkbox" id="wrap_multi" checked>
+        <span>临时多文件</span>
+      </label>
+      <label class="mode-option" id="wrap_project_label">
+        <input type="checkbox" id="wrap_project" checked>
+        <span>项目开发</span>
+      </label>
+    </div>
+
+    <!-- 项目模式：打开文件夹 -->
+    <div id="project_actions" style="display:none;">
+      <button class="action-btn" id="btn_open_folder" style="width:100%;margin-bottom:6px;">
+        📂 打开项目文件夹
+      </button>
+      <div class="project-path" id="project_path"></div>
+    </div>
+
+    <!-- 文件树 -->
+    <div class="tree-toolbar">
+      <span class="tree-label">文件</span>
+      <span class="tree-actions" id="tree_actions" style="display:none;">
+        <button class="mini-btn" id="btn_new_file" title="新建文件">+ 📄</button>
+        <button class="mini-btn" id="btn_new_dir" title="新建目录">+ 📁</button>
+        <button class="mini-btn" id="btn_delete_item" title="删除选中项">🗑</button>
+        <button class="mini-btn" id="btn_reset_workspace" title="清空整个工作区">清空</button>
+      </span>
+    </div>
+    <!-- 原生目录选择器（隐藏） -->
+    <input type="file" id="native_folder_picker" webkitdirectory style="display:none;">
+
+    <!-- 内联确认条（替代 confirm 弹窗） -->
+    <div id="inline_confirm" class="inline-input-bar" style="display:none;">
+      <span id="inline_confirm_msg">确认操作？</span>
+      <button class="mini-btn" id="inline_confirm_yes" style="margin-left:auto;">确认</button>
+      <button class="mini-btn" id="inline_confirm_no">取消</button>
+    </div>
+
+    <!-- 内联输入条（替代 prompt 弹窗） -->
+    <div id="inline_input" class="inline-input-bar" style="display:none;">
+      <span class="inline-prefix" id="inline_prefix"></span>
+      <input type="text" id="inline_input_field" placeholder="输入名称…" autocomplete="off">
+      <button class="mini-btn" id="inline_input_ok">✓</button>
+      <button class="mini-btn" id="inline_input_cancel">✕</button>
+    </div>
+    <div id="file_tree" class="file-tree"></div>
+  </aside>
+
+  <!-- ─── 左侧：代码编辑器 ─── -->
+  <section id="editor_panel">
+    <div class="panel-header">
+      <span class="panel-title">Java 代码编辑器</span>
+      <span class="panel-info" id="editor_info">Main.java</span>
+    </div>
+
+    <!-- 导入包区域（框架关闭时显示） -->
+    <div id="imports_area" style="display:none;">
+      <div class="imports-header">
+        <span>📦 导入包</span>
+        <span class="imports-hint">每行一个，如 java.util.Scanner</span>
+      </div>
+      <textarea id="imports_editor"
+                placeholder="java.util.Scanner&#10;java.util.Random"
+                rows="2"></textarea>
+    </div>
+
+    <textarea id="code_editor"></textarea>
+  </section>
+
+  <!-- ─── 右侧：控制台 ─── -->
+  <section id="console_panel">
+    <div class="panel-header">
+      <span class="panel-title">控制台输出</span>
+      <button class="mini-btn" id="btn_clear" title="清空控制台">✕ 清空</button>
+    </div>
+    <div id="console_output"></div>
+    <div id="input_area">
+      <span class="input-prompt">▶</span>
+      <input type="text" id="console_input"
+             placeholder="在此输入交互内容，按 Enter 发送…"
+             disabled autocomplete="off">
+    </div>
+  </section>
+
+</div>
+
+<!-- ═══ 底部按钮栏 ═══ -->
+<footer id="action_bar">
+  <button class="action-btn run-btn" id="btn_run">▶ 运行 (Ctrl+Enter)</button>
+  <button class="action-btn stop-btn" id="btn_stop" disabled>■ 停止 (Ctrl+C)</button>
+  <span class="separator">|</span>
+  <button class="action-btn example-btn" id="btn_example1">示例：循环输出</button>
+  <button class="action-btn example-btn" id="btn_example2">示例：交互输入</button>
+  <span style="flex:1;"></span>
+  <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank"
+     style="font-size:10px;color:var(--text-dim);text-decoration:none;"
+     title="GNU General Public License v3">GPL v3</a>
+</footer>
+
+<!-- ═══ 设置面板 Modal ═══ -->
+<div id="settings_modal" class="modal-overlay" style="display:none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span>⚙️ 设置</span>
+      <button class="icon-btn" id="btn_close_settings">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- JDK 模式选择 — 横向 tabs -->
+      <div class="jdk-tabs">
+        <label class="jdk-tab" id="tab_env">
+          <input type="radio" name="jdk_mode" value="env" checked>
+          <span>环境模式</span>
+        </label>
+        <label class="jdk-tab" id="tab_path">
+          <input type="radio" name="jdk_mode" value="path">
+          <span>路径模式</span>
+        </label>
+        <label class="jdk-tab" id="tab_relative">
+          <input type="radio" name="jdk_mode" value="relative">
+          <span>相对模式</span>
+        </label>
+      </div>
+
+      <!-- 环境模式 -->
+      <div id="jdk_env_section" class="jdk-section">
+        <div class="jdk-info" id="jdk_env_info">从 JAVA_HOME / PATH 自动检测...</div>
+      </div>
+
+      <!-- 路径模式 -->
+      <div id="jdk_path_section" class="jdk-section" style="display:none;">
+        <select id="jdk_path_select">
+          <option value="">-- 选择历史路径 --</option>
+        </select>
+        <div class="row" style="margin-top:6px;">
+          <input type="text" id="jdk_path_input" placeholder="或直接粘贴 JDK 绝对路径…">
+          <button class="mini-btn" id="btn_add_jdk_path">添加</button>
+        </div>
+        <div class="jdk-info" id="jdk_path_info"></div>
+        <div class="row" style="margin-top:6px;">
+          <button class="mini-btn" id="btn_check_jdk">检测</button>
+          <button class="mini-btn" id="btn_delete_jdk" style="margin-left:auto;">删除选中</button>
+        </div>
+      </div>
+
+      <!-- 相对模式 -->
+      <div id="jdk_relative_section" class="jdk-section" style="display:none;">
+        <div class="jdk-info" id="jdk_relative_info">扫描中...</div>
+        <div id="jdk_relative_list"></div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:6px;padding:4px 0;">
+          💡 目录格式: <code style="color:var(--accent);">jdk/jdk-{版本号}</code><br>
+          &nbsp;&nbsp; 如: <code style="color:var(--text-dim);">jdk/jdk-17.0.12</code>、<code style="color:var(--text-dim);">jdk/jdk-1.8.0_131</code>
+        </div>
+      </div>
+
+      <!-- 当前生效 -->
+      <div class="jdk-current">
+        <span class="jdk-current-label">当前: </span>
+        <code id="jdk_current"></code>
+      </div>
+      <div class="jdk-current" style="margin-top:4px;">
+        <span class="jdk-current-label">版本: </span>
+        <code id="jdk_version_info" style="color:var(--text-dim);"></code>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <span id="settings_status" style="font-size:11px;color:var(--green);flex:1;"></span>
+      <button class="action-btn" id="btn_save_settings">保存设置</button>
+      <button class="action-btn" id="btn_cancel_settings">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ JS 模块（依赖顺序：先模块后主入口） ═══ -->
+<script src="/static/js/modules/theme.js"></script>
+<script src="/static/js/modules/editor.js"></script>
+<script src="/static/js/modules/console.js"></script>
+<script src="/static/js/modules/socket.js"></script>
+<script src="/static/js/modules/settings.js"></script>
+<script src="/static/js/modules/filetree.js"></script>
+<script src="/static/js/modules/tabs.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
