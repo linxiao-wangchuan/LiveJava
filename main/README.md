@@ -6,7 +6,7 @@
 
 ## 项目初衷
 
-不废话了，就是初学java的时候遇到`javac` 编译到 `java`运行过程太冗长，还没法实时看到代码和执行效果，又不能看idea代码提示，在线的[菜鸟教程在线编辑器](https://www.runoob.com/try/runcode.php?filename=HelloWorld&type=java)又用不了Scanner，干脆写一个用用。 
+不废话了，就是初学java的时候看韩顺平老师的视频遇到反反复复`javac` 编译到 `java`的过程，且还没法实时看到代码和执行效果，又不能看idea代码提示，在线的[菜鸟教程在线编辑器](https://www.runoob.com/try/runcode.php?filename=HelloWorld&type=java)又用不了Scanner，干脆写一个用用。 
 
 
 ## 环境要求
