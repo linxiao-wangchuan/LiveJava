@@ -4,6 +4,14 @@
 
 ---
 
+## v2.1.2 (2026-07-11)
+
+**修复**: `_auto_wrap_all` 三重兜底——裸片段完整包装、有类无package且位于子目录自动补package声明、有类有package原样不动。彻底解决旧版本遗留文件和新创建文件的包名冲突。
+
+**优化**: 发布版根 `README.md` 加入主界面截图（`screenshot.png`），自动从 `main/attachments/` 复制到 `release/` 根目录。
+
+---
+
 ## v2.1.1 (2026-07-10)
 
 **修复**: `_auto_wrap_all` 现在根据文件所在目录自动生成 `package` 声明（如 `test/Main.java` → `package test;`），根目录文件无包，彻底解决不同子目录下同名类的编译冲突。

@@ -218,8 +218,10 @@ def _launch_java(classpath: str, class_name: str):
 
 def _auto_wrap_all(java_files: list[Path], use_framework: bool) -> bool:
     """
-    扫描所有文件，将裸片段自动包装为独立类。
-    自动添加 package 声明（根据目录结构），避免同名类冲突。
+    扫描所有文件：
+    - 裸片段 → 包装成独立类
+    - 已有类但没有 package 且位于子目录 → 补上 package 声明
+    避免不同目录下的同名类因无包声明而冲突。
     """
     if not use_framework:
         return False
@@ -229,13 +231,14 @@ def _auto_wrap_all(java_files: list[Path], use_framework: bool) -> bool:
             content = f.read_text(encoding="utf-8")
         except Exception:
             continue
+
+        pkg = _derive_package(f)
+
         if is_raw_snippet(content):
+            # 裸片段：完整包装
             class_name = f.stem
-            # 从文件路径推导包名（相对 WORKSPACE_DIR）
-            pkg = _derive_package(f)
             body_lines = content.strip().split("\n")
             body = "\n".join("        " + line for line in body_lines)
-
             if pkg:
                 wrapped = (
                     f"package {pkg};\n\n"
@@ -248,9 +251,14 @@ def _auto_wrap_all(java_files: list[Path], use_framework: bool) -> bool:
             else:
                 wrapped = load_template(class_name)
                 wrapped = wrapped.replace("        //\n", body + "\n")
-
             f.write_text(wrapped, encoding="utf-8")
             wrapped_any = True
+
+        elif pkg and not _detect_package(content):
+            # 已有类但缺 package 且位于子目录 → 补上 package
+            f.write_text(f"package {pkg};\n\n{content}", encoding="utf-8")
+            wrapped_any = True
+
     return wrapped_any
 
 

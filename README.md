@@ -2,6 +2,8 @@
 
 > 浏览器里写 Java，一键运行即时看结果 | Instant Java in browser
 
+![主界面](screenshot.png)
+
 ## 快速开始
 
 ```bash
