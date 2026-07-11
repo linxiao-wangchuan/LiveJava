@@ -121,6 +121,11 @@ def reset_workspace():
                     # 最后一次失败：逐文件删除
                     _force_clear_dir(WORKSPACE_DIR)
     WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
+    # 清理编译输出
+    out_dir = WORKSPACE_DIR.parent / "out"
+    if out_dir.exists():
+        shutil.rmtree(out_dir, ignore_errors=True)
+    # 创建默认 Main.java
     create_file("Main.java",
         "public class Main {\n"
         "    public static void main(String[] args) {\n"

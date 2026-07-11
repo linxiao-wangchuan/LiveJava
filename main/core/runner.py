@@ -97,6 +97,7 @@ def run_java(
         process = subprocess.Popen(
             [
                 java_path, "-cp", classpath,
+                "-Xmx512m", "-Xms32m",
                 "-Dfile.encoding=UTF-8",
                 "-Dsun.stdout.encoding=UTF-8",
                 "-Dsun.stderr.encoding=UTF-8",

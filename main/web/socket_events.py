@@ -219,7 +219,7 @@ def _launch_java(classpath: str, class_name: str):
 def _auto_wrap_all(java_files: list[Path], use_framework: bool) -> bool:
     """
     扫描所有文件，将裸片段自动包装为独立类。
-    返回是否有文件被包装。
+    自动添加 package 声明（根据目录结构），避免同名类冲突。
     """
     if not use_framework:
         return False
@@ -230,15 +230,38 @@ def _auto_wrap_all(java_files: list[Path], use_framework: bool) -> bool:
         except Exception:
             continue
         if is_raw_snippet(content):
-            class_name = f.stem  # Cat.java → Cat
-            wrapped = load_template(class_name)
-            # 把原内容作为注释保留，然后塞进 main 方法体
+            class_name = f.stem
+            # 从文件路径推导包名（相对 WORKSPACE_DIR）
+            pkg = _derive_package(f)
             body_lines = content.strip().split("\n")
             body = "\n".join("        " + line for line in body_lines)
-            wrapped = wrapped.replace("        //\n", body + "\n")
+
+            if pkg:
+                wrapped = (
+                    f"package {pkg};\n\n"
+                    f"public class {class_name} {{\n"
+                    f"    public static void main(String[] args) {{\n"
+                    f"{body}\n"
+                    f"    }}\n"
+                    f"}}\n"
+                )
+            else:
+                wrapped = load_template(class_name)
+                wrapped = wrapped.replace("        //\n", body + "\n")
+
             f.write_text(wrapped, encoding="utf-8")
             wrapped_any = True
     return wrapped_any
+
+
+def _derive_package(file_path: Path) -> str:
+    """根据文件在 WORKSPACE_DIR 下的位置推导包名"""
+    try:
+        rel = file_path.relative_to(WORKSPACE_DIR)
+    except ValueError:
+        return ""
+    parts = rel.parts[:-1]  # 去掉文件名
+    return ".".join(parts) if parts else ""
 
 
 def _wrap_entry_file(
@@ -306,15 +329,18 @@ def _find_entry(java_files: list[Path], preferred: str = "") -> tuple[Path | Non
 
 
 def _clean_temp_dir():
-    """清空临时编译目录（保留 workspace 子目录）"""
+    """清空临时编译目录（保留 workspace 子目录，但清理 out/ 里的旧 .class）"""
     for f in TEMP_DIR.glob("*"):
         try:
             if f.name == "workspace":
                 continue
+            if f.name == "out":
+                shutil.rmtree(f, ignore_errors=True)
+                continue
             if f.is_file():
                 f.unlink()
-            elif f.is_dir() and f.name != "out":
-                shutil.rmtree(f)
+            elif f.is_dir():
+                shutil.rmtree(f, ignore_errors=True)
         except Exception:
             pass
 

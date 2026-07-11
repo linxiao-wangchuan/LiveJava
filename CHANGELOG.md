@@ -4,6 +4,27 @@
 
 ---
 
+## v2.1.1 (2026-07-10)
+
+**修复**: `_auto_wrap_all` 现在根据文件所在目录自动生成 `package` 声明（如 `test/Main.java` → `package test;`），根目录文件无包，彻底解决不同子目录下同名类的编译冲突。
+
+**修复**: `_clean_temp_dir()` 现在清理 `temp/out/` 目录，`reset_workspace()` 也同步清空编译输出，不再残留旧 `.class` 文件。
+
+**修复**: Java 进程加 `-Xmx512m -Xms32m` 堆内存限制，解决 JDK8 在内存大的机器上自动估算出 16GB 堆导致 `Could not create JVM` 的问题。
+
+---
+
+## v2.1.0-release (2026-07-09)
+
+**新增**: GPL v3 协议 — 项目根 `LICENSE` 文件 + 前端底部 `GPL v3` 链接。
+**新增**: `release.py` 发布打包脚本 — 一键生成干净发布版（排除 config.json/temp/docs，保留 .git，创建 config.json.example + jdk 指引）。
+**调整**: `requirements.txt` 移至 `main/` 目录内，便于 README 引用。
+**新增**: `main/attachments/` 目录存放 README 截图资源。
+**新增**: `main/README.md` 完整中文用户文档（含截图）+ 项目根 `README.md` 快速指引。
+**发布**: 首次推送至 GitHub — `github.com/linxiao-wangchuan/LiveJava`（SSH 认证）。
+
+---
+
 ## v2.1.0 (2026-07-08)
 
 **新增**: 批量自动包装——编译时扫描全部 .java 文件，裸片段自动以文件名作类名包装成独立类（Cat.java → `public class Cat { ... }`），彻底解决混合文件编译报错。
