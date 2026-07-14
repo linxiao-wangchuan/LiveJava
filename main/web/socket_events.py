@@ -329,8 +329,16 @@ def _find_entry(java_files: list[Path], preferred: str = "") -> tuple[Path | Non
         return None, None
 
     if preferred:
+        # 优先精确匹配相对路径，再退到文件名匹配
         for f, fqn in candidates:
-            if f.name == Path(preferred).name or str(f).endswith(preferred):
+            try:
+                rel = str(f.relative_to(WORKSPACE_DIR)).replace("\\", "/")
+                if rel == preferred or rel.endswith(preferred):
+                    return f, fqn
+            except ValueError:
+                pass
+        for f, fqn in candidates:
+            if f.name == Path(preferred).name:
                 return f, fqn
 
     return candidates[0]

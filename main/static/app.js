@@ -646,30 +646,30 @@ function deleteSelectedItem(mode) {
   });
 }
 
-// 切换文件前自动保存当前编辑内容
+// 切换文件前自动保存当前编辑内容（返回 Promise 确保存完再加载）
 function _autoSaveCurrentFile() {
-  if (!_selectedEntryPath) return;
+  if (!_selectedEntryPath) return Promise.resolve();
   const mode = _currentMode;
-  if (mode !== "temp_multi" && mode !== "project") return;
+  if (mode !== "temp_multi" && mode !== "project") return Promise.resolve();
   const code = Editor.getValue();
+  const path = _selectedEntryPath;  // 快照，避免异步中被覆盖
   const api = mode === "project" ? "/api/project/write" : "/api/temp-workspace/write";
-  // fire-and-forget（异步保存，不等结果）
-  fetch(api, {
+  return fetch(api, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path: _selectedEntryPath, content: code }),
+    body: JSON.stringify({ path, content: code }),
   }).catch(() => {});
 }
 
 function bindTreeClicks() {
-  // 文件点击：先保存旧文件 → 加载新文件到编辑器 → 同级目录作为新建默认位置
+  // 文件点击：①先等旧文件保存完成 → ②再加载新文件
   document.querySelectorAll("#file_tree .tree-file").forEach(el => {
-    el.addEventListener("click", () => {
+    el.addEventListener("click", async () => {
       const path = el.dataset.path;
       if (!path) return;
-      // ★ 切文件前自动保存旧文件
-      _autoSaveCurrentFile();
-      // 清除所有高亮
+      // ★ 等旧文件存完再切
+      await _autoSaveCurrentFile();
+      // 清除高亮 + 设置新选中
       document.querySelectorAll("#file_tree .tree-file, #file_tree .tree-folder")
         .forEach(e => e.classList.remove("active"));
       el.classList.add("active");
@@ -768,7 +768,9 @@ function loadFileToEditor(path) {
     .then(data => {
       if (data.content !== undefined) {
         Editor.setValue(data.content);
-        // 刷新 CodeMirror viewport，避免内容切换后最后一行无法选中
+        // 清空 undo 历史，避免 Ctrl+Z 回退到上个文件的内容
+        if (Editor.get()) Editor.get().clearHistory();
+        // 刷新 viewport
         setTimeout(() => { if (Editor.get()) Editor.get().refresh(); }, 50);
         const info = $("#editor_info");
         if (info) info.textContent = path.split("/").pop() || "Main.java";
