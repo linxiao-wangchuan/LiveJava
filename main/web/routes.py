@@ -26,6 +26,7 @@ from workspace.project_workspace import (
     create_file as project_create_file,
     create_dir as project_create_dir,
     delete_entry as project_delete_entry,
+    rename_entry as project_rename_entry,
     get_src_dir, get_out_dir,
 )
 
@@ -161,6 +162,20 @@ def register_routes(app: Flask):
         delete_entry(data.get("path", ""))
         return jsonify({"ok": True})
 
+    @app.route("/api/temp-workspace/move", methods=["POST"])
+    def api_temp_move():
+        data = request.get_json()
+        if not data: return jsonify({"ok": False}), 400
+        old_path = data.get("old_path", "")
+        new_path = data.get("new_path", "")
+        if not old_path or not new_path:
+            return jsonify({"ok": False, "error": "需要 old_path 和 new_path"}), 400
+        try:
+            rename_entry(old_path, new_path)
+            return jsonify({"ok": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+
     @app.route("/api/temp-workspace/reset", methods=["POST"])
     def api_temp_reset():
         reset_workspace()
@@ -285,3 +300,18 @@ def register_routes(app: Flask):
             return jsonify({"ok": False}), 400
         project_delete_entry(_current_project_dir, data.get("path", ""))
         return jsonify({"ok": True})
+
+    @app.route("/api/project/move", methods=["POST"])
+    def api_project_move():
+        data = request.get_json()
+        if not data or _ensure_project_dir() is None:
+            return jsonify({"ok": False}), 400
+        old_path = data.get("old_path", "")
+        new_path = data.get("new_path", "")
+        if not old_path or not new_path:
+            return jsonify({"ok": False, "error": "需要 old_path 和 new_path"}), 400
+        try:
+            project_rename_entry(_current_project_dir, old_path, new_path)
+            return jsonify({"ok": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
