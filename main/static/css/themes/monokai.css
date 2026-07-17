@@ -1,0 +1,35 @@
+/* Monokai Theme — Sublime Text 经典 */
+[data-theme="monokai"] {
+  --bg-primary:    #272822;
+  --bg-secondary:  #2d2e27;
+  --bg-tertiary:   #383830;
+  --bg-input:      #1e1f1c;
+  --bg-hover:      #3e3d32;
+  --bg-active:     #49483e;
+
+  --border:        #49483e;
+  --border-light:  #555;
+
+  --text:          #f8f8f2;
+  --text-dim:      #75715e;
+  --text-bright:   #ffffff;
+
+  --accent:        #a6e22e;
+  --accent2:       #66d9ef;
+  --red:           #f92672;
+  --green:         #a6e22e;
+  --yellow:        #e6db74;
+  --orange:        #fd971f;
+
+  --btn-bg:        #383830;
+  --btn-hover:     #49483e;
+  --btn-border:    #49483e;
+
+  --scrollbar-thumb: #49483e;
+  --scrollbar-track: #272822;
+
+  --sidebar-bg:    #272822;
+  --tab-active-bg: #272822;
+  --tab-inactive-bg: #383830;
+  --toolbar-bg:    #3e3d32;
+}

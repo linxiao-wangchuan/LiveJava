@@ -1,0 +1,35 @@
+/* Dracula Theme — 最流行暗色 */
+[data-theme="dracula"] {
+  --bg-primary:    #282a36;
+  --bg-secondary:  #2d2f3d;
+  --bg-tertiary:   #343746;
+  --bg-input:      #1e1f29;
+  --bg-hover:      #44475a;
+  --bg-active:     #6272a4;
+
+  --border:        #44475a;
+  --border-light:  #6272a4;
+
+  --text:          #f8f8f2;
+  --text-dim:      #6272a4;
+  --text-bright:   #ffffff;
+
+  --accent:        #bd93f9;
+  --accent2:       #8be9fd;
+  --red:           #ff5555;
+  --green:         #50fa7b;
+  --yellow:        #f1fa8c;
+  --orange:        #ffb86c;
+
+  --btn-bg:        #343746;
+  --btn-hover:     #44475a;
+  --btn-border:    #44475a;
+
+  --scrollbar-thumb: #6272a4;
+  --scrollbar-track: #282a36;
+
+  --sidebar-bg:    #282a36;
+  --tab-active-bg: #282a36;
+  --tab-inactive-bg: #343746;
+  --toolbar-bg:    #2d2f3d;
+}

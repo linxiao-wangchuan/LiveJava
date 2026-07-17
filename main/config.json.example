@@ -7,7 +7,8 @@
     "last_valid_javac": null,
     "last_valid_java": null
   },
-  "theme": "dark",
+  "theme": "sublime-dark",
+  "custom_themes": [],
   "last_mode": "temp_single",
   "last_project_dir": "",
   "_comment": "这是配置示例。使用时复制为 config.json，根据需求修改。"

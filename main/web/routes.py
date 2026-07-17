@@ -4,13 +4,16 @@ HTTP 路由
 页面和 API 端点注册：设置、临时工作区、项目工作区。
 """
 
+import os
+import base64
+import json as _json
 from pathlib import Path
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_file
 
 from config import (
     load_config, save_config,
     scan_relative_jdks, detect_java_from_path, update_path_history,
-    PROJECT_DIR,
+    PROJECT_DIR, BG_DIR, BG_INDEX, VIDEO_DIR, VIDEO_INDEX,
 )
 from workspace.temp_workspace import (
     list_file_tree, create_file, create_dir, delete_entry, rename_entry,
@@ -315,3 +318,197 @@ def register_routes(app: Flask):
             return jsonify({"ok": True})
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)}), 500
+
+    # ================================================================
+    # 背景图 API
+    # ================================================================
+
+    def _read_bg_index():
+        if BG_INDEX.exists():
+            try:
+                return _json.loads(BG_INDEX.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        return {"active": "", "images": []}
+
+    def _write_bg_index(idx):
+        BG_INDEX.write_text(_json.dumps(idx, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    @app.route("/api/backgrounds/list", methods=["GET"])
+    def api_bg_list():
+        idx = _read_bg_index()
+        images = []
+        for img in idx.get("images", []):
+            fpath = BG_DIR / img["filename"]
+            thumb = None
+            if fpath.exists():
+                try:
+                    from PIL import Image
+                    import io as _io
+                    im = Image.open(fpath)
+                    im.thumbnail((100, 60), Image.LANCZOS)
+                    buf = _io.BytesIO()
+                    im.save(buf, format="JPEG", quality=60)
+                    thumb = base64.b64encode(buf.getvalue()).decode()
+                except Exception:
+                    pass
+            images.append({
+                "filename": img["filename"],
+                "added_at": img.get("added_at", ""),
+                "size_kb": img.get("size_kb", 0),
+                "thumb": thumb,
+            })
+        return jsonify({"active": idx.get("active", ""), "images": images})
+
+    @app.route("/api/backgrounds/upload", methods=["POST"])
+    def api_bg_upload():
+        data = request.get_json()
+        if not data: return jsonify({"ok": False, "error": "no data"}), 400
+        filename = data.get("filename", "bg.png")
+        b64 = data.get("data", "")
+        if not b64:
+            return jsonify({"ok": False, "error": "no image data"}), 400
+        if "," in b64:
+            b64 = b64.split(",", 1)[1]
+        try:
+            raw = base64.b64decode(b64)
+        except Exception:
+            return jsonify({"ok": False, "error": "invalid base64"}), 400
+        if len(raw) > 50 * 1024 * 1024:
+            return jsonify({"ok": False, "error": "image too large (>50MB)"}), 400
+        stem, ext = os.path.splitext(filename)
+        if not ext: ext = ".png"
+        import datetime
+        safe_name = f"{stem}_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
+        fpath = BG_DIR / safe_name
+        fpath.write_bytes(raw)
+        idx = _read_bg_index()
+        idx["images"].append({
+            "filename": safe_name,
+            "added_at": datetime.datetime.now().strftime("%Y-%m-%d"),
+            "size_kb": round(len(raw) / 1024, 1),
+        })
+        _write_bg_index(idx)
+        return jsonify({"ok": True, "filename": safe_name})
+
+    @app.route("/api/backgrounds/delete", methods=["POST"])
+    def api_bg_delete():
+        data = request.get_json()
+        if not data: return jsonify({"ok": False}), 400
+        filename = data.get("filename", "")
+        if not filename: return jsonify({"ok": False}), 400
+        fpath = BG_DIR / filename
+        if fpath.exists():
+            fpath.unlink()
+        idx = _read_bg_index()
+        idx["images"] = [img for img in idx["images"] if img["filename"] != filename]
+        if idx["active"] == filename:
+            idx["active"] = ""
+        _write_bg_index(idx)
+        return jsonify({"ok": True})
+
+    @app.route("/api/backgrounds/activate", methods=["POST"])
+    def api_bg_activate():
+        data = request.get_json()
+        if not data: return jsonify({"ok": False}), 400
+        filename = data.get("filename", "")
+        idx = _read_bg_index()
+        idx["active"] = filename
+        _write_bg_index(idx)
+        return jsonify({"ok": True})
+
+    @app.route("/api/backgrounds/file/<path:filename>")
+    def api_bg_file(filename):
+        fpath = BG_DIR / filename
+        if fpath.exists():
+            return send_file(str(fpath))
+        return ("", 404)
+
+    # ================================================================
+    # 背景视频 API（视频单独目录，与图片隔离）
+    # ================================================================
+
+    def _read_video_index():
+        if VIDEO_INDEX.exists():
+            try:
+                return _json.loads(VIDEO_INDEX.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        return {"active": "", "videos": []}
+
+    def _write_video_index(idx):
+        VIDEO_INDEX.write_text(_json.dumps(idx, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    @app.route("/api/background-videos/list", methods=["GET"])
+    def api_video_list():
+        idx = _read_video_index()
+        videos = [{
+            "filename": v["filename"],
+            "added_at": v.get("added_at", ""),
+            "size_kb": v.get("size_kb", 0),
+        } for v in idx.get("videos", [])]
+        return jsonify({"active": idx.get("active", ""), "videos": videos})
+
+    @app.route("/api/background-videos/upload", methods=["POST"])
+    def api_video_upload():
+        data = request.get_json()
+        if not data: return jsonify({"ok": False, "error": "no data"}), 400
+        filename = data.get("filename", "bg.mp4")
+        b64 = data.get("data", "")
+        if not b64:
+            return jsonify({"ok": False, "error": "no video data"}), 400
+        if "," in b64:
+            b64 = b64.split(",", 1)[1]
+        try:
+            raw = base64.b64decode(b64)
+        except Exception:
+            return jsonify({"ok": False, "error": "invalid base64"}), 400
+        if len(raw) > 150 * 1024 * 1024:
+            return jsonify({"ok": False, "error": "video too large (>150MB)"}), 400
+        stem, ext = os.path.splitext(filename)
+        if not ext: ext = ".mp4"
+        import datetime
+        safe_name = f"{stem}_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
+        fpath = VIDEO_DIR / safe_name
+        fpath.write_bytes(raw)
+        idx = _read_video_index()
+        idx["videos"].append({
+            "filename": safe_name,
+            "added_at": datetime.datetime.now().strftime("%Y-%m-%d"),
+            "size_kb": round(len(raw) / 1024, 1),
+        })
+        _write_video_index(idx)
+        return jsonify({"ok": True, "filename": safe_name})
+
+    @app.route("/api/background-videos/delete", methods=["POST"])
+    def api_video_delete():
+        data = request.get_json()
+        if not data: return jsonify({"ok": False}), 400
+        filename = data.get("filename", "")
+        if not filename: return jsonify({"ok": False}), 400
+        fpath = VIDEO_DIR / filename
+        if fpath.exists():
+            fpath.unlink()
+        idx = _read_video_index()
+        idx["videos"] = [v for v in idx["videos"] if v["filename"] != filename]
+        if idx["active"] == filename:
+            idx["active"] = ""
+        _write_video_index(idx)
+        return jsonify({"ok": True})
+
+    @app.route("/api/background-videos/activate", methods=["POST"])
+    def api_video_activate():
+        data = request.get_json()
+        if not data: return jsonify({"ok": False}), 400
+        filename = data.get("filename", "")
+        idx = _read_video_index()
+        idx["active"] = filename
+        _write_video_index(idx)
+        return jsonify({"ok": True})
+
+    @app.route("/api/background-videos/file/<path:filename>")
+    def api_video_file(filename):
+        fpath = VIDEO_DIR / filename
+        if fpath.exists():
+            return send_file(str(fpath))
+        return ("", 404)

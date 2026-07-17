@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="sublime-dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,9 +15,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/lint/lint.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 
-<!-- 主题 -->
-<link rel="stylesheet" href="/static/css/themes/dark.css">
+<!-- 主题（8 套预设） -->
+<link rel="stylesheet" href="/static/css/themes/sublime-dark.css">
 <link rel="stylesheet" href="/static/css/themes/light.css">
+<link rel="stylesheet" href="/static/css/themes/monokai.css">
+<link rel="stylesheet" href="/static/css/themes/one-dark.css">
+<link rel="stylesheet" href="/static/css/themes/dracula.css">
+<link rel="stylesheet" href="/static/css/themes/nord.css">
+<link rel="stylesheet" href="/static/css/themes/gruvbox-dark.css">
+<link rel="stylesheet" href="/static/css/themes/solarized-dark.css">
 <!-- 主样式 -->
 <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -281,75 +287,144 @@
 
 <!-- ═══ 设置面板 Modal ═══ -->
 <div id="settings_modal" class="modal-overlay" style="display:none;">
-  <div class="modal-content">
+  <div class="modal-content" style="width:680px;max-height:82vh;">
     <div class="modal-header">
       <span>⚙️ 设置</span>
       <button class="icon-btn" id="btn_close_settings">✕</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" style="display:flex;padding:0;overflow:hidden;">
 
-      <!-- JDK 模式选择 — 横向 tabs -->
-      <div class="jdk-tabs">
-        <label class="jdk-tab" id="tab_env">
-          <input type="radio" name="jdk_mode" value="env" checked>
-          <span>环境模式</span>
-        </label>
-        <label class="jdk-tab" id="tab_path">
-          <input type="radio" name="jdk_mode" value="path">
-          <span>路径模式</span>
-        </label>
-        <label class="jdk-tab" id="tab_relative">
-          <input type="radio" name="jdk_mode" value="relative">
-          <span>相对模式</span>
-        </label>
+      <!-- 左侧竖 Tab -->
+      <div id="settings_side_tabs">
+        <div class="side-tab active" data-tab="env">⚙ 环境</div>
+        <div class="side-tab" data-tab="appearance">🎨 外观</div>
       </div>
 
-      <!-- 环境模式 -->
-      <div id="jdk_env_section" class="jdk-section">
-        <div class="jdk-info" id="jdk_env_info">从 JAVA_HOME / PATH 自动检测...</div>
-      </div>
+      <!-- 右侧内容区 -->
+      <div id="settings_content">
 
-      <!-- 路径模式 -->
-      <div id="jdk_path_section" class="jdk-section" style="display:none;">
-        <select id="jdk_path_select">
-          <option value="">-- 选择历史路径 --</option>
-        </select>
-        <div class="row" style="margin-top:6px;">
-          <input type="text" id="jdk_path_input" placeholder="或直接粘贴 JDK 绝对路径…">
-          <button class="mini-btn" id="btn_add_jdk_path">添加</button>
+        <!-- ═══ 环境 Tab ═══ -->
+        <div id="settings_tab_env" class="settings-tab-content">
+          <div class="jdk-tabs">
+            <label class="jdk-tab" id="tab_env"><input type="radio" name="jdk_mode" value="env" checked><span>环境模式</span></label>
+            <label class="jdk-tab" id="tab_path"><input type="radio" name="jdk_mode" value="path"><span>路径模式</span></label>
+            <label class="jdk-tab" id="tab_relative"><input type="radio" name="jdk_mode" value="relative"><span>相对模式</span></label>
+          </div>
+          <div id="jdk_env_section" class="jdk-section"><div class="jdk-info" id="jdk_env_info">从 JAVA_HOME / PATH 自动检测...</div></div>
+          <div id="jdk_path_section" class="jdk-section" style="display:none;">
+            <select id="jdk_path_select"><option value="">-- 选择历史路径 --</option></select>
+            <div class="row" style="margin-top:6px;"><input type="text" id="jdk_path_input" placeholder="或直接粘贴 JDK 绝对路径…"><button class="mini-btn" id="btn_add_jdk_path">添加</button></div>
+            <div class="jdk-info" id="jdk_path_info"></div>
+            <div class="row" style="margin-top:6px;"><button class="mini-btn" id="btn_check_jdk">检测</button><button class="mini-btn" id="btn_delete_jdk" style="margin-left:auto;">删除选中</button></div>
+          </div>
+          <div id="jdk_relative_section" class="jdk-section" style="display:none;">
+            <div class="jdk-info" id="jdk_relative_info">扫描中...</div><div id="jdk_relative_list"></div>
+            <div style="font-size:10px;color:var(--text-dim);margin-top:6px;">💡 目录格式: <code>jdk/jdk-{版本号}</code></div>
+          </div>
+          <div class="jdk-current"><span class="jdk-current-label">当前: </span><code id="jdk_current"></code></div>
+          <div class="jdk-current" style="margin-top:4px;"><span class="jdk-current-label">版本: </span><code id="jdk_version_info"></code></div>
         </div>
-        <div class="jdk-info" id="jdk_path_info"></div>
-        <div class="row" style="margin-top:6px;">
-          <button class="mini-btn" id="btn_check_jdk">检测</button>
-          <button class="mini-btn" id="btn_delete_jdk" style="margin-left:auto;">删除选中</button>
+
+        <!-- ═══ 外观 Tab ═══ -->
+        <div id="settings_tab_appearance" class="settings-tab-content" style="display:none;">
+
+          <!-- 颜色预设 -->
+          <div class="appearance-section">
+            <div class="appearance-title">🎨 颜色预设</div>
+            <div id="preset_grid" class="preset-grid"></div>
+          </div>
+
+          <!-- 自定义主题 -->
+          <div class="appearance-section">
+            <div class="appearance-title">🖌️ 自定义主题 <button class="mini-btn" id="btn_new_custom">➕ 新建</button></div>
+            <div id="custom_grid" class="preset-grid"></div>
+          </div>
+
+          <!-- 背景模式切换 -->
+          <div class="appearance-section">
+            <div class="appearance-title">🎬 编辑器背景</div>
+            <div class="bg-mode-toggle">
+              <label class="mode-option" style="display:inline-flex;">
+                <input type="radio" name="bg_mode" value="image" checked>
+                <span>📷 背景图</span>
+              </label>
+              <label class="mode-option" style="display:inline-flex;">
+                <input type="radio" name="bg_mode" value="video">
+                <span>🎬 背景频</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 背景图区域 -->
+          <div id="bg_image_section" class="appearance-section">
+            <div class="appearance-title">🖼️ 背景图</div>
+            <div id="bg_grid" class="bg-grid">
+              <div class="bg-upload-zone" id="bg_upload_zone" title="点击选择文件或 Ctrl+V 粘贴">
+                <span style="font-size:22px;">➕</span><span style="font-size:10px;">上传</span>
+              </div>
+            </div>
+            <input type="file" id="bg_file_input" accept="image/*" style="display:none;">
+          </div>
+
+          <!-- 背景视频区域 -->
+          <div id="bg_video_section" class="appearance-section" style="display:none;">
+            <div class="appearance-title">🎬 背景视频</div>
+            <div id="video_grid" class="bg-grid">
+              <div class="bg-upload-zone" id="video_upload_zone" title="点击选择文件或 Ctrl+V 粘贴">
+                <span style="font-size:22px;">➕</span><span style="font-size:10px;">上传</span>
+              </div>
+            </div>
+            <input type="file" id="video_file_input" accept="video/*" style="display:none;">
+            <!-- 视频填充方式 -->
+            <div style="margin-top:8px;font-size:11px;color:var(--text-dim);">
+              填充方式:
+              <label style="margin-left:8px;"><input type="radio" name="video_fill" value="cover" checked> 裁剪填充</label>
+              <label style="margin-left:8px;"><input type="radio" name="video_fill" value="contain"> 完整显示</label>
+            </div>
+            <!-- 音量 -->
+            <div class="mask-slider-row" style="margin-top:6px;">
+              <span style="font-size:11px;color:var(--text-dim);min-width:40px;">🔊 音量</span>
+              <input type="range" id="video_volume" min="0" max="100" value="0" step="5">
+              <span id="video_volume_val" style="font-family:var(--font-mono);font-size:13px;color:var(--accent);min-width:36px;text-align:right;">静音</span>
+            </div>
+          </div>
+
+          <!-- 蒙版 -->
+          <div class="appearance-section">
+            <div class="appearance-title">🎭 背景蒙版不透明度</div>
+            <div class="mask-slider-row">
+              <input type="range" id="mask_opacity" min="0" max="80" value="45" step="1">
+              <span id="mask_opacity_val">0.45</span>
+            </div>
+          </div>
+
         </div>
-      </div>
 
-      <!-- 相对模式 -->
-      <div id="jdk_relative_section" class="jdk-section" style="display:none;">
-        <div class="jdk-info" id="jdk_relative_info">扫描中...</div>
-        <div id="jdk_relative_list"></div>
-        <div style="font-size:10px;color:var(--text-dim);margin-top:6px;padding:4px 0;">
-          💡 目录格式: <code style="color:var(--accent);">jdk/jdk-{版本号}</code><br>
-          &nbsp;&nbsp; 如: <code style="color:var(--text-dim);">jdk/jdk-17.0.12</code>、<code style="color:var(--text-dim);">jdk/jdk-1.8.0_131</code>
-        </div>
       </div>
-
-      <!-- 当前生效 -->
-      <div class="jdk-current">
-        <span class="jdk-current-label">当前: </span>
-        <code id="jdk_current"></code>
-      </div>
-      <div class="jdk-current" style="margin-top:4px;">
-        <span class="jdk-current-label">版本: </span>
-        <code id="jdk_version_info" style="color:var(--text-dim);"></code>
-      </div>
-
     </div>
     <div class="modal-footer">
       <span id="settings_status" style="font-size:11px;color:var(--green);flex:1;"></span>
       <button class="action-btn" id="btn_save_settings">保存设置</button>
       <button class="action-btn" id="btn_cancel_settings">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 自定义主题编辑器弹窗 -->
+<div id="custom_editor_modal" class="modal-overlay" style="display:none;">
+  <div class="modal-content" style="width:420px;">
+    <div class="modal-header"><span>🖌️ 编辑主题</span><button class="icon-btn" id="btn_close_custom_editor">✕</button></div>
+    <div class="modal-body" style="padding:14px;">
+      <div style="margin-bottom:10px;"><label style="font-size:11px;color:var(--text-dim);">主题名称</label>
+        <input type="text" id="custom_theme_name" style="width:100%;padding:5px 8px;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:13px;margin-top:3px;" placeholder="我的主题">
+      </div>
+      <div id="custom_color_fields"></div>
+    </div>
+    <div class="modal-footer">
+      <span id="custom_editor_status" style="font-size:11px;color:var(--red);flex:1;"></span>
+      <button class="action-btn" id="btn_delete_custom" style="background:#a31515;border-color:#c52727;color:#fff;display:none;">删除</button>
+      <button class="action-btn" id="btn_cancel_custom">取消</button>
+      <button class="action-btn run-btn" id="btn_save_custom">保存</button>
     </div>
   </div>
 </div>

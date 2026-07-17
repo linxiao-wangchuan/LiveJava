@@ -23,6 +23,12 @@ WORKSPACE_DIR.mkdir(exist_ok=True)
 
 CONFIG_FILE = PROJECT_DIR / "config.json"               # 项目配置文件
 JDK_DIR     = PROJECT_DIR / "jdk"                       # 相对模式 JDK 存放目录
+BG_DIR      = MAIN_DIR / "backgrounds"                   # 背景图存放目录
+BG_DIR.mkdir(exist_ok=True)
+BG_INDEX    = BG_DIR / ".bg_index.json"                 # 背景图索引
+VIDEO_DIR   = MAIN_DIR / "background_videos"             # 背景视频存放目录
+VIDEO_DIR.mkdir(exist_ok=True)
+VIDEO_INDEX = VIDEO_DIR / ".video_index.json"           # 背景视频索引
 
 # ============================================================
 # Java 路径（运行时设置）

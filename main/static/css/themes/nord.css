@@ -1,0 +1,35 @@
+/* Nord Theme — Arctic 极北风 */
+[data-theme="nord"] {
+  --bg-primary:    #2e3440;
+  --bg-secondary:  #343b48;
+  --bg-tertiary:   #3b4252;
+  --bg-input:      #242933;
+  --bg-hover:      #434c5e;
+  --bg-active:     #4c566a;
+
+  --border:        #434c5e;
+  --border-light:  #4c566a;
+
+  --text:          #d8dee9;
+  --text-dim:      #616e88;
+  --text-bright:   #eceff4;
+
+  --accent:        #88c0d0;
+  --accent2:       #81a1c1;
+  --red:           #bf616a;
+  --green:         #a3be8c;
+  --yellow:        #ebcb8b;
+  --orange:        #d08770;
+
+  --btn-bg:        #3b4252;
+  --btn-hover:     #434c5e;
+  --btn-border:    #434c5e;
+
+  --scrollbar-thumb: #4c566a;
+  --scrollbar-track: #2e3440;
+
+  --sidebar-bg:    #2e3440;
+  --tab-active-bg: #2e3440;
+  --tab-inactive-bg: #3b4252;
+  --toolbar-bg:    #343b48;
+}

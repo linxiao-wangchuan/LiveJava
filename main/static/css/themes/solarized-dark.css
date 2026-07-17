@@ -1,0 +1,35 @@
+/* Solarized Dark Theme — 护眼低对比 */
+[data-theme="solarized-dark"] {
+  --bg-primary:    #002b36;
+  --bg-secondary:  #003847;
+  --bg-tertiary:   #073642;
+  --bg-input:      #001e26;
+  --bg-hover:      #004052;
+  --bg-active:     #586e75;
+
+  --border:        #073642;
+  --border-light:  #586e75;
+
+  --text:          #839496;
+  --text-dim:      #586e75;
+  --text-bright:   #eee8d5;
+
+  --accent:        #2aa198;
+  --accent2:       #268bd2;
+  --red:           #dc322f;
+  --green:         #859900;
+  --yellow:        #b58900;
+  --orange:        #cb4b16;
+
+  --btn-bg:        #073642;
+  --btn-hover:     #004052;
+  --btn-border:    #586e75;
+
+  --scrollbar-thumb: #586e75;
+  --scrollbar-track: #002b36;
+
+  --sidebar-bg:    #002b36;
+  --tab-active-bg: #002b36;
+  --tab-inactive-bg: #073642;
+  --toolbar-bg:    #003847;
+}

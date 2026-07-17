@@ -46,6 +46,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // 1. 加载主题
   ThemeManager.init();
 
+  // 1.5 初始化编辑器背景叠加层
+  Settings.initBgOverlay();
+
   // 2. 初始化编辑器
   const savedCode = (() => {
     try { return localStorage.getItem("java_runner_code") || EXAMPLE_NO_INTERACT; }
@@ -150,11 +153,11 @@ function bindEvents() {
     Console.append("system", "[就绪] 已加载「交互输入」示例。\n");
   });
 
-  // 主题切换按钮
+  // 主题切换按钮 → 打开设置到外观
   const themeBtn = $("#btn_theme");
   if (themeBtn) {
     themeBtn.addEventListener("click", () => {
-      ThemeManager.toggle();
+      Settings.openPanel("appearance");
     });
   }
 
@@ -525,7 +528,7 @@ function initModeSwitch() {
       const bar = document.querySelector("#inline_input");
       const field = document.querySelector("#inline_input_field");
       if (prefix) prefix.textContent = "项目路径: ";
-      if (field) field.placeholder = "如 E:\\project\\my-app";
+      if (field) field.placeholder = "如 D:\\project\\my-app";
       if (bar) bar.style.display = "flex";
       if (field) { field.value = ""; field.focus(); }
       _pendingAction = "open_project";

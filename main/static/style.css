@@ -113,6 +113,8 @@ html, body {
   letter-spacing: 0.5px;
   color: var(--text-dim);
   user-select: none;
+  position: relative;
+  z-index: 2;
 }
 .panel-info {
   font-size: 11px;
@@ -129,6 +131,7 @@ html, body {
   border-right: 2px solid var(--border);
   background: var(--bg-primary);
   overflow: hidden;
+  position: relative;
 }
 .CodeMirror {
   height: 100% !important;
@@ -259,6 +262,8 @@ html, body {
   overflow-y: hidden;
   white-space: nowrap;
   user-select: none;
+  position: relative;
+  z-index: 2;
 }
 #tab_bar::-webkit-scrollbar { height: 3px; }
 #tab_bar::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
@@ -810,6 +815,201 @@ select {
   border-radius: 3px;
   font-size: 12px;
   font-family: var(--font-mono);
+}
+
+/* ============================================================
+   设置面板 — 竖 Tab 布局
+   ============================================================ */
+#settings_side_tabs {
+  width: 90px; min-width: 90px;
+  background: var(--bg-tertiary);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  padding: 8px 0;
+}
+.side-tab {
+  padding: 10px 12px;
+  font-size: 12px; color: var(--text-dim);
+  cursor: pointer; user-select: none;
+  border-left: 2px solid transparent;
+  transition: all 0.15s;
+}
+.side-tab:hover { background: var(--bg-hover); color: var(--text); }
+.side-tab.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: rgba(78,201,176,0.08);
+}
+#settings_content {
+  flex: 1; overflow-y: auto;
+  padding: 14px;
+  min-height: 360px;
+}
+.settings-tab-content { display: block; }
+
+/* 外观区域 */
+.appearance-section {
+  margin-bottom: 16px;
+}
+.appearance-title {
+  font-size: 12px; font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* 预设色块网格 */
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.preset-card {
+  padding: 10px 6px;
+  border-radius: 5px;
+  border: 2px solid var(--border);
+  text-align: center; cursor: pointer;
+  font-size: 10px; color: var(--text);
+  transition: all 0.15s;
+  position: relative;
+  user-select: none;
+}
+.preset-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.preset-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(78,201,176,0.3); }
+.preset-card .preset-name { font-weight: 600; margin-bottom: 2px; display: block; }
+.preset-card .preset-preview { display: flex; gap: 2px; margin-top: 4px; justify-content: center; }
+.preset-card .preset-swatch { width: 10px; height: 10px; border-radius: 2px; }
+.preset-card .preset-del {
+  position: absolute; top: 2px; right: 4px;
+  font-size: 10px; color: var(--red);
+  cursor: pointer; display: none;
+}
+.preset-card:not(.preset-locked):hover .preset-del { display: block; }
+.preset-card .preset-tick {
+  position: absolute; top: 2px; left: 4px;
+  font-size: 10px; color: var(--accent);
+  display: none;
+}
+.preset-card.active .preset-tick { display: block; }
+
+/* 背景图网格 */
+.bg-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.bg-card {
+  width: 80px; height: 50px;
+  border-radius: 4px; border: 2px solid var(--border);
+  background-size: cover; background-position: center;
+  cursor: pointer; position: relative;
+  overflow: hidden;
+}
+.bg-card:hover { border-color: var(--accent); }
+.bg-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(78,201,176,0.3); }
+.bg-card .bg-card-del {
+  position: absolute; top: 0; right: 0;
+  width: 18px; height: 18px;
+  background: rgba(0,0,0,0.6); color: #fff;
+  font-size: 10px; line-height: 18px; text-align: center;
+  cursor: pointer; display: none;
+  border-radius: 0 0 0 4px;
+}
+.bg-card:hover .bg-card-del { display: block; }
+.bg-card .bg-card-tick {
+  position: absolute; top: 2px; left: 2px;
+  font-size: 10px; color: var(--accent); display: none;
+}
+.bg-card.active .bg-card-tick { display: block; }
+.bg-card.bg-none {
+  background: var(--bg-tertiary);
+  border-style: dashed;
+}
+
+.bg-upload-zone {
+  width: 80px; height: 50px;
+  border: 2px dashed var(--border);
+  border-radius: 4px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer; color: var(--text-dim);
+  transition: all 0.15s;
+}
+.bg-upload-zone:hover { border-color: var(--accent); color: var(--accent); }
+
+/* 蒙版滑块 */
+.mask-slider-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.mask-slider-row input[type="range"] {
+  flex: 1; accent-color: var(--accent);
+}
+#mask_opacity_val {
+  font-family: var(--font-mono);
+  font-size: 13px; color: var(--accent);
+  min-width: 36px; text-align: right;
+}
+
+/* 背景模式切换 */
+.bg-mode-toggle {
+  display: flex; gap: 8px;
+}
+
+/* 编辑器背景叠加层 */
+#editor_bg_overlay {
+  position: absolute; inset: 0;
+  z-index: 0; pointer-events: none;
+}
+#editor_bg_image {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center;
+  background-repeat: no-repeat;
+}
+#editor_bg_mask {
+  position: absolute; inset: 0;
+}
+#editor_bg_video {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+/* CodeMirror 透明化 + 置于蒙版之上 */
+#editor_panel .CodeMirror,
+#editor_wrapper .CodeMirror {
+  background: transparent !important;
+  position: relative;
+  z-index: 1;
+}
+#editor_panel .CodeMirror-gutters,
+#editor_wrapper .CodeMirror-gutters {
+  background: transparent !important;
+  border-right-color: rgba(128,128,128,0.2) !important;
+}
+#editor_wrapper {
+  position: relative;
+}
+
+/* 自定义主题编辑器 */
+#custom_color_fields .color-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+#custom_color_fields .color-row label {
+  font-size: 11px; color: var(--text-dim);
+  min-width: 80px;
+}
+#custom_color_fields .color-row input[type="color"] {
+  width: 32px; height: 24px;
+  border: 1px solid var(--border); border-radius: 3px;
+  cursor: pointer; padding: 0; background: none;
+}
+#custom_color_fields .color-row input[type="text"] {
+  flex: 1;
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 11px; font-family: var(--font-mono);
 }
 
 /* ── README / 帮助弹窗 ── */
