@@ -67,6 +67,10 @@ DEFAULT_CONFIG = {
     "theme": "dark",
     "last_mode": "temp_single",                 # temp_single | temp_multi | project
     "last_project_dir": "",
+    "upload_limits": {
+        "java_runner_image_limit_mb": 100,
+        "java_runner_video_limit_mb": 150,
+    },
 }
 
 

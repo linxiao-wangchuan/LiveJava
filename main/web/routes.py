@@ -53,6 +53,11 @@ def _ensure_project_dir():
 def register_routes(app: Flask):
     """注册所有 HTTP 路由"""
 
+    @app.route("/favicon.ico")
+    def favicon():
+        from flask import send_from_directory
+        return send_from_directory(app.static_folder, "favicon.png", mimetype="image/png")
+
     @app.route("/")
     def index():
         return render_template("index.html")
@@ -334,8 +339,36 @@ def register_routes(app: Flask):
     def _write_bg_index(idx):
         BG_INDEX.write_text(_json.dumps(idx, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    def _sync_bg_index():
+        """扫描目录：新增未索引文件 + 清理已删除文件"""
+        import datetime as _dt
+        idx = _read_bg_index()
+        disk_files = {f.name for f in BG_DIR.iterdir() if f.is_file() and f.suffix.lower() in (".jpg",".jpeg",".png",".gif",".webp",".bmp")}
+        old_len = len(idx.get("images", []))
+        idx["images"] = [img for img in idx.get("images", []) if img["filename"] in disk_files]
+        if len(idx["images"]) != old_len: _write_bg_index(idx)
+        known = {img["filename"] for img in idx["images"]}
+        changed = False
+        for fname in sorted(disk_files):
+            if fname not in known:
+                f = BG_DIR / fname
+                idx["images"].append({
+                    "filename": fname,
+                    "added_at": _dt.datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d"),
+                    "size_kb": round(f.stat().st_size / 1024, 1),
+                })
+                changed = True
+        if idx.get("active") and idx["active"] not in disk_files:
+            idx["active"] = ""
+            changed = True
+        if changed:
+            _write_bg_index(idx)
+
+    _sync_bg_index()
+
     @app.route("/api/backgrounds/list", methods=["GET"])
     def api_bg_list():
+        _sync_bg_index()  # 运行时拖文件也能识别
         idx = _read_bg_index()
         images = []
         for img in idx.get("images", []):
@@ -346,6 +379,10 @@ def register_routes(app: Flask):
                     from PIL import Image
                     import io as _io
                     im = Image.open(fpath)
+                    # GIF/PNG 调色板模式需转 RGB 才能存 JPEG
+                    if im.mode in ("P", "RGBA", "LA", "PA"):
+                        im = im.convert("RGBA")
+                    im = im.convert("RGB")
                     im.thumbnail((100, 60), Image.LANCZOS)
                     buf = _io.BytesIO()
                     im.save(buf, format="JPEG", quality=60)
@@ -374,10 +411,15 @@ def register_routes(app: Flask):
             raw = base64.b64decode(b64)
         except Exception:
             return jsonify({"ok": False, "error": "invalid base64"}), 400
-        if len(raw) > 50 * 1024 * 1024:
-            return jsonify({"ok": False, "error": "image too large (>50MB)"}), 400
+        cfg = load_config()
+        img_limit_mb = cfg.get("upload_limits", {}).get("java_runner_image_limit_mb", 100)
+        if len(raw) > img_limit_mb * 1024 * 1024:
+            return jsonify({"ok": False, "error": f"image too large (>{img_limit_mb}MB)"}), 400
         stem, ext = os.path.splitext(filename)
         if not ext: ext = ".png"
+        # 清理特殊字符（括号、空格等URL不友好字符）
+        import re as _re
+        stem = _re.sub(r'[()\s]+', '_', stem)
         import datetime
         safe_name = f"{stem}_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
         fpath = BG_DIR / safe_name
@@ -439,14 +481,96 @@ def register_routes(app: Flask):
     def _write_video_index(idx):
         VIDEO_INDEX.write_text(_json.dumps(idx, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    def _find_ffmpeg() -> str | None:
+        """在 PATH 和常用位置查找 ffmpeg"""
+        import shutil
+        found = shutil.which("ffmpeg")
+        if found: return found
+        # 搜项目同级目录
+        for root in [PROJECT_DIR.parent, PROJECT_DIR]:
+            for d in root.rglob("ffmpeg*"):
+                exe = d / "bin" / "ffmpeg.exe"
+                if exe.exists(): return str(exe)
+        return None
+
+    def _generate_video_thumb(fpath: Path) -> str | None:
+        """用 ffmpeg 抽视频首帧做缩略图，失败则返回占位图"""
+        if not fpath.exists():
+            return None
+        try:
+            import subprocess as _sp
+            import io as _io
+            ffmpeg_exe = _find_ffmpeg() or "ffmpeg"
+            ffmpeg = _sp.run(
+                [ffmpeg_exe, "-y", "-i", str(fpath), "-vframes", "1",
+                 "-f", "image2pipe", "-vcodec", "mjpeg", "-"],
+                capture_output=True, timeout=15,
+            )
+            if ffmpeg.returncode == 0 and ffmpeg.stdout:
+                from PIL import Image
+                im = Image.open(_io.BytesIO(ffmpeg.stdout))
+                im = im.convert("RGB")
+                im.thumbnail((100, 60), Image.LANCZOS)
+                buf = _io.BytesIO()
+                im.save(buf, format="JPEG", quality=60)
+                return base64.b64encode(buf.getvalue()).decode()
+        except Exception:
+            pass
+        # 降级：占位图
+        try:
+            from PIL import Image, ImageDraw
+            import io as _io
+            im = Image.new("RGB", (100, 60), "#1a1a2e")
+            draw = ImageDraw.Draw(im)
+            draw.polygon([(38, 18), (38, 42), (62, 30)], fill="#888888")
+            buf = _io.BytesIO()
+            im.save(buf, format="JPEG", quality=60)
+            return base64.b64encode(buf.getvalue()).decode()
+        except Exception:
+            return None
+
+    def _sync_video_index():
+        """扫描目录：新增未索引文件 + 清理已删除文件"""
+        import datetime as _dt
+        idx = _read_video_index()
+        disk_files = {f.name for f in VIDEO_DIR.iterdir() if f.is_file() and f.suffix.lower() in (".mp4",".webm",".mov",".avi",".mkv")}
+        old_len = len(idx.get("videos", []))
+        idx["videos"] = [v for v in idx.get("videos", []) if v["filename"] in disk_files]
+        if len(idx["videos"]) != old_len: _write_video_index(idx)
+        known = {v["filename"] for v in idx["videos"]}
+        changed = False
+        for fname in sorted(disk_files):
+            if fname not in known:
+                f = VIDEO_DIR / fname
+                idx["videos"].append({
+                    "filename": fname,
+                    "added_at": _dt.datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d"),
+                    "size_kb": round(f.stat().st_size / 1024, 1),
+                    "thumb": None,
+                })
+                changed = True
+        if idx.get("active") and idx["active"] not in disk_files:
+            idx["active"] = ""
+            changed = True
+        if changed:
+            _write_video_index(idx)
+
+    _sync_video_index()
+
     @app.route("/api/background-videos/list", methods=["GET"])
     def api_video_list():
+        _sync_video_index()  # 运行时拖文件也能识别
         idx = _read_video_index()
-        videos = [{
-            "filename": v["filename"],
-            "added_at": v.get("added_at", ""),
-            "size_kb": v.get("size_kb", 0),
-        } for v in idx.get("videos", [])]
+        videos = []
+        for v in idx.get("videos", []):
+            # 先用缓存的 Canvas 缩略图，没有再调 ffmpeg
+            thumb = v.get("thumb") or _generate_video_thumb(VIDEO_DIR / v["filename"])
+            videos.append({
+                "filename": v["filename"],
+                "added_at": v.get("added_at", ""),
+                "size_kb": v.get("size_kb", 0),
+                "thumb": thumb,
+            })
         return jsonify({"active": idx.get("active", ""), "videos": videos})
 
     @app.route("/api/background-videos/upload", methods=["POST"])
@@ -463,19 +587,25 @@ def register_routes(app: Flask):
             raw = base64.b64decode(b64)
         except Exception:
             return jsonify({"ok": False, "error": "invalid base64"}), 400
-        if len(raw) > 150 * 1024 * 1024:
-            return jsonify({"ok": False, "error": "video too large (>150MB)"}), 400
+        cfg = load_config()
+        vid_limit_mb = cfg.get("upload_limits", {}).get("java_runner_video_limit_mb", 150)
+        if len(raw) > vid_limit_mb * 1024 * 1024:
+            return jsonify({"ok": False, "error": f"video too large (>{vid_limit_mb}MB)"}), 400
         stem, ext = os.path.splitext(filename)
         if not ext: ext = ".mp4"
+        import re as _re
+        stem = _re.sub(r'[()\s]+', '_', stem)
         import datetime
         safe_name = f"{stem}_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}{ext}"
         fpath = VIDEO_DIR / safe_name
         fpath.write_bytes(raw)
+        thumb = data.get("thumb", None)  # Canvas 前端截帧（可选）
         idx = _read_video_index()
         idx["videos"].append({
             "filename": safe_name,
             "added_at": datetime.datetime.now().strftime("%Y-%m-%d"),
             "size_kb": round(len(raw) / 1024, 1),
+            "thumb": thumb,  # 存 base64 缩略图到索引
         })
         _write_video_index(idx)
         return jsonify({"ok": True, "filename": safe_name})

@@ -72,6 +72,7 @@ def run_java(
     classpath: str,
     class_name: str,
     java_path: str = "java",
+    cwd: str = None,
     on_stdout: Callable[[str], None] | None = None,
     on_stderr: Callable[[str], None] | None = None,
     on_complete: Callable[[int], None] | None = None,
@@ -106,7 +107,7 @@ def run_java(
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=classpath,
+            cwd=cwd or classpath,
         )
     except FileNotFoundError:
         if on_stderr:

@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Java 本地运行服务器</title>
+<link rel="icon" type="image/png" href="/favicon.ico?v=1">
 
 <!-- CodeMirror 5 -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
@@ -31,7 +32,7 @@
 
 <!-- ═══ 顶部栏 ═══ -->
 <header id="toolbar">
-  <span class="brand">Java 本地运行服务器</span>
+  <span class="brand"><img src="/static/favicon-20.png" width="18" height="18" style="vertical-align:middle;margin-right:6px;margin-top:-2px;">Java 本地运行服务器</span>
   <div style="display:flex;align-items:center;gap:10px;">
     <button class="icon-btn" id="btn_toggle_sidebar_top" title="显示/隐藏侧栏">☰</button>
     <button class="icon-btn" id="btn_theme" title="切换主题">🌓</button>
@@ -233,6 +234,7 @@
           <tr><td class="kbd">Ctrl + Enter</td><td>运行代码</td></tr>
           <tr><td class="kbd">Ctrl + C</td><td>停止运行</td></tr>
           <tr><td class="kbd">Ctrl + L</td><td>清空控制台</td></tr>
+          <tr><td class="kbd">Ctrl + S</td><td>手动保存文件</td></tr>
           <tr><td class="kbd">Ctrl + /</td><td>注释 / 取消注释</td></tr>
           <tr><td class="kbd">Alt + →</td><td>切换到下一个文件 Tab</td></tr>
           <tr><td class="kbd">Alt + ←</td><td>切换到上一个文件 Tab</td></tr>
@@ -357,13 +359,25 @@
 
           <!-- 背景图区域 -->
           <div id="bg_image_section" class="appearance-section">
-            <div class="appearance-title">🖼️ 背景图</div>
+            <div class="appearance-title" style="justify-content:space-between;">
+              <span>🖼️ 背景图</span>
+              <span class="bg-filter-tabs">
+                <button class="mini-btn bg-filter-btn active" data-filter="all">全部</button>
+                <button class="mini-btn bg-filter-btn" data-filter="static">🖼 静态</button>
+                <button class="mini-btn bg-filter-btn" data-filter="gif">🎞 动图</button>
+              </span>
+            </div>
             <div id="bg_grid" class="bg-grid">
               <div class="bg-upload-zone" id="bg_upload_zone" title="点击选择文件或 Ctrl+V 粘贴">
                 <span style="font-size:22px;">➕</span><span style="font-size:10px;">上传</span>
               </div>
             </div>
             <input type="file" id="bg_file_input" accept="image/*" style="display:none;">
+            <div style="margin-top:8px;font-size:11px;color:var(--text-dim);">
+              填充方式:
+              <label style="margin-left:8px;"><input type="radio" name="image_fill" value="cover" checked> 裁剪填充</label>
+              <label style="margin-left:8px;"><input type="radio" name="image_fill" value="contain"> 完整显示</label>
+            </div>
           </div>
 
           <!-- 背景视频区域 -->
@@ -386,6 +400,17 @@
               <span style="font-size:11px;color:var(--text-dim);min-width:40px;">🔊 音量</span>
               <input type="range" id="video_volume" min="0" max="100" value="0" step="5">
               <span id="video_volume_val" style="font-family:var(--font-mono);font-size:13px;color:var(--accent);min-width:36px;text-align:right;">静音</span>
+            </div>
+          </div>
+
+          <!-- 上传限制 -->
+          <div class="appearance-section">
+            <div class="appearance-title">📏 上传限制</div>
+            <div style="display:flex;gap:10px;align-items:center;font-size:11px;color:var(--text-dim);">
+              <span>图片上限(MB):</span>
+              <input type="number" id="image_limit_mb" min="1" max="500" value="100" style="width:70px;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:3px 6px;font-size:12px;">
+              <span style="margin-left:8px;">视频上限(MB):</span>
+              <input type="number" id="video_limit_mb" min="1" max="500" value="150" style="width:70px;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:3px;padding:3px 6px;font-size:12px;">
             </div>
           </div>
 
@@ -434,7 +459,7 @@
 <script src="/static/js/modules/editor.js"></script>
 <script src="/static/js/modules/console.js"></script>
 <script src="/static/js/modules/socket.js"></script>
-<script src="/static/js/modules/settings.js"></script>
+<script src="/static/js/modules/settings.js?v=3"></script>
 <script src="/static/js/modules/filetree.js"></script>
 <script src="/static/js/modules/tabs.js"></script>
 <script src="/static/app.js"></script>

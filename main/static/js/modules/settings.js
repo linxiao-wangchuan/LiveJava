@@ -46,8 +46,8 @@ const Settings = (() => {
     try { const r = await fetch("/api/background-videos/list"); return await r.json(); }
     catch (_) { return {active:"",videos:[]}; }
   }
-  async function _videoUpload(filename, base64Data) {
-    const r = await fetch("/api/background-videos/upload", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({filename,data:base64Data}) });
+  async function _videoUpload(filename, base64Data, thumb) {
+    const r = await fetch("/api/background-videos/upload", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({filename, data:base64Data, thumb:thumb||null}) });
     return await r.json();
   }
   async function _videoDelete(filename) {
@@ -351,6 +351,55 @@ const Settings = (() => {
       }
     });
 
+    // ── 上传限制 ──
+    function _getLimit(key, defVal) {
+      try { return parseInt(localStorage.getItem(key)) || defVal; } catch (_) { return defVal; }
+    }
+    function _saveLimit(key, val) {
+      try { localStorage.setItem(key, val); } catch (_) {}
+      // 同步到 config.json
+      const cfg = _config || {};
+      if (!cfg.upload_limits) cfg.upload_limits = {};
+      cfg.upload_limits[key] = parseInt(val);
+      saveConfig(cfg);
+    }
+    const imgLimitInput = document.querySelector("#image_limit_mb");
+    const vidLimitInput = document.querySelector("#video_limit_mb");
+    if (imgLimitInput) {
+      imgLimitInput.value = _getLimit("java_runner_image_limit_mb", 100);
+      imgLimitInput.addEventListener("change", () => _saveLimit("java_runner_image_limit_mb", imgLimitInput.value));
+    }
+    if (vidLimitInput) {
+      vidLimitInput.value = _getLimit("java_runner_video_limit_mb", 150);
+      vidLimitInput.addEventListener("change", () => _saveLimit("java_runner_video_limit_mb", vidLimitInput.value));
+    }
+
+    // ── 背景图筛选标签 ──
+    document.querySelectorAll(".bg-filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".bg-filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        _refreshBgGrid();
+      });
+    });
+
+    // ── 图片填充方式 ──
+    document.querySelectorAll('input[name="image_fill"]').forEach(r => {
+      r.addEventListener("change", () => {
+        const imgDiv = document.querySelector("#editor_bg_image");
+        if (imgDiv) {
+          imgDiv.style.backgroundSize = r.value;
+          imgDiv.style.backgroundPosition = r.value === "contain" ? "center center" : "center center";
+        }
+        try { localStorage.setItem("java_runner_image_fill", r.value); } catch (_) {}
+      });
+    });
+    try {
+      const fill = localStorage.getItem("java_runner_image_fill") || "cover";
+      const fillRadio = document.querySelector(`input[name="image_fill"][value="${fill}"]`);
+      if (fillRadio) fillRadio.checked = true;
+    } catch (_) {}
+
     // ── 背景模式切换（图片 ↔ 视频） ──
     document.querySelectorAll('input[name="bg_mode"]').forEach(r => {
       r.addEventListener("change", () => {
@@ -507,6 +556,9 @@ const Settings = (() => {
     if (!grid) return;
     const data = await _bgList();
     const active = data.active || "";
+    // 当前筛选
+    const filterBtn = document.querySelector(".bg-filter-btn.active");
+    const filter = filterBtn ? filterBtn.dataset.filter : "all";
     let html = "";
     // "无" 选项：清空背景图
     html += `<div class="bg-card bg-none${!active?" active":""}" data-filename="" title="无背景图">
@@ -514,10 +566,16 @@ const Settings = (() => {
       <span style="font-size:10px;line-height:50px;text-align:center;display:block;color:var(--text-dim);">无</span>
     </div>`;
     for (const img of data.images || []) {
+      const isGif = img.filename.toLowerCase().endsWith(".gif");
+      // 筛选
+      if (filter === "gif" && !isGif) continue;
+      if (filter === "static" && isGif) continue;
       const isActive = img.filename === active;
       const bgStyle = img.thumb ? `background-image:url(data:image/jpeg;base64,${img.thumb})` : "background:var(--bg-tertiary)";
+      const gifBadge = isGif ? '<span class="bg-gif-badge">GIF</span>' : "";
       html += `<div class="bg-card${isActive?" active":""}" style="${bgStyle}" data-filename="${img.filename}" title="${img.filename}">
         <span class="bg-card-tick">✓</span>
+        ${gifBadge}
         <span class="bg-card-del" data-del="${img.filename}">✕</span>
       </div>`;
     }
@@ -526,26 +584,30 @@ const Settings = (() => {
     // 清除旧的 bg-card
     grid.querySelectorAll(".bg-card").forEach(c => c.remove());
     if (uploadZone) uploadZone.insertAdjacentHTML("beforebegin", html);
-    // 绑定事件
-    grid.querySelectorAll(".bg-card").forEach(card => {
-      card.addEventListener("click", async (e) => {
-        if (e.target.classList.contains("bg-card-del")) {
-          await _bgDelete(e.target.dataset.del);
-          if (active === e.target.dataset.del) _applyEditorBg("");
-          _refreshBgGrid();
-          return;
-        }
+    // 事件委托
+    grid.onclick = async (e) => {
+      const delBtn = e.target.closest(".bg-card-del");
+      if (delBtn) {
+        e.stopPropagation();
+        await _bgDelete(delBtn.dataset.del);
+        if (active === delBtn.dataset.del) _applyEditorBg("");
+        _refreshBgGrid();
+        return;
+      }
+      const card = e.target.closest(".bg-card");
+      if (card && card.dataset.filename !== undefined) {
         const fn = card.dataset.filename;
         await _bgActivate(fn);
         _applyEditorBg(fn);
         try { localStorage.setItem("java_runner_bg_active_img", fn); } catch (_) {}
         _refreshBgGrid();
-      });
-    });
+      }
+    };
   }
 
   async function _handleBgFile(file) {
-    if (file.size > 50*1024*1024) { alert("图片不能超过 50MB"); return; }
+    const imgLimit = parseInt(localStorage.getItem("java_runner_image_limit_mb")||"100") * 1024 * 1024;
+if (file.size > imgLimit) { alert(`图片不能超过 ${parseInt(localStorage.getItem("java_runner_image_limit_mb")||"100")}MB`); return; }
     const reader = new FileReader();
     reader.onload = async () => {
       const result = await _bgUpload(file.name, reader.result);
@@ -560,15 +622,41 @@ const Settings = (() => {
 
   // ── 视频处理 ──
   async function _handleVideoFile(file) {
-    if (file.size > 150*1024*1024) { alert("视频不能超过 150MB"); return; }
+    const vidLimit = parseInt(localStorage.getItem("java_runner_video_limit_mb")||"150") * 1024 * 1024;
+if (file.size > vidLimit) { alert(`视频不能超过 ${parseInt(localStorage.getItem("java_runner_video_limit_mb")||"150")}MB`); return; }
+    // Canvas 截首帧
+    const thumb = await _captureVideoFrame(file);
     const reader = new FileReader();
     reader.onload = async () => {
-      const result = await _videoUpload(file.name, reader.result);
-      if (result.ok) {
-        _refreshVideoGrid();
-      }
+      const result = await _videoUpload(file.name, reader.result, thumb);
+      if (result.ok) { _refreshVideoGrid(); }
     };
     reader.readAsDataURL(file);
+  }
+
+  function _captureVideoFrame(file) {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata"; video.muted = true; video.playsInline = true;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+      let done = false;
+      const finish = (b64) => { if (!done) { done = true; URL.revokeObjectURL(url); video.remove(); resolve(b64); } };
+      video.addEventListener("loadeddata", () => { video.currentTime = 0.1; });
+      video.addEventListener("seeked", () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 160; canvas.height = 90;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, 160, 90);
+        // Canvas toDataURL 带 data: 前缀，去掉只留纯 base64
+        const full = canvas.toDataURL("image/jpeg", 0.6);
+        const pure = full.includes("base64,") ? full.split("base64,")[1] : full;
+        finish(pure);
+        canvas.remove();
+      });
+      video.addEventListener("error", () => finish(null));
+      setTimeout(() => finish(null), 8000);
+    });
   }
 
   async function _refreshVideoGrid() {
@@ -584,29 +672,35 @@ const Settings = (() => {
     </div>`;
     for (const v of data.videos || []) {
       const isActive = v.filename === active;
-      html += `<div class="bg-card${isActive?" active":""}" style="background:var(--bg-tertiary)" data-filename="${v.filename}" title="${v.filename}">
+      const bgStyle = v.thumb ? `background-image:url(data:image/jpeg;base64,${v.thumb});background-size:cover;` : "background:var(--bg-tertiary)";
+      const content = v.thumb ? "" : '<span style="font-size:18px;line-height:50px;text-align:center;display:block;">🎬</span>';
+      html += `<div class="bg-card${isActive?" active":""}" style="${bgStyle}" data-filename="${v.filename}" title="${v.filename}">
         <span class="bg-card-tick">✓</span>
-        <span style="font-size:18px;line-height:50px;text-align:center;display:block;">🎬</span>
+        ${content}
         <span class="bg-card-del" data-del="${v.filename}">✕</span>
       </div>`;
     }
     const uploadZone = grid.querySelector(".bg-upload-zone");
     grid.querySelectorAll(".bg-card").forEach(c => c.remove());
     if (uploadZone) uploadZone.insertAdjacentHTML("beforebegin", html);
-    grid.querySelectorAll(".bg-card").forEach(card => {
-      card.addEventListener("click", async (e) => {
-        if (e.target.classList.contains("bg-card-del")) {
-          await _videoDelete(e.target.dataset.del);
-          if (active === e.target.dataset.del) _stopVideo();
-          _refreshVideoGrid();
-          return;
-        }
+    // 事件委托：在 grid 上统一监听，更可靠
+    grid.onclick = async (e) => {
+      const delBtn = e.target.closest(".bg-card-del");
+      if (delBtn) {
+        e.stopPropagation();
+        await _videoDelete(delBtn.dataset.del);
+        if (active === delBtn.dataset.del) _stopVideo();
+        _refreshVideoGrid();
+        return;
+      }
+      const card = e.target.closest(".bg-card");
+      if (card && card.dataset.filename !== undefined) {
         const fn = card.dataset.filename;
         await _videoActivate(fn);
         if (fn) _applyEditorVideo(fn); else _stopVideo();
         _refreshVideoGrid();
-      });
-    });
+      }
+    };
   }
 
   function _applyEditorVideo(filename) {
@@ -646,15 +740,22 @@ const Settings = (() => {
   }
 
   function _applyEditorBg(filename) {
-    _stopVideo();  // 图片模式，关视频
+    _stopVideo();
     const imgDiv = document.querySelector("#editor_bg_image");
     if (!filename) {
       if (imgDiv) imgDiv.style.backgroundImage = "";
       return;
     }
-    // 确保 overlay 存在
     _ensureEditorBgOverlay();
-    if (imgDiv) imgDiv.style.backgroundImage = `url(/api/backgrounds/file/${encodeURIComponent(filename)})`;
+    if (imgDiv) {
+      imgDiv.style.backgroundImage = `url(/api/backgrounds/file/${encodeURIComponent(filename)})`;
+      // 恢复填充方式
+      try {
+        const fill = localStorage.getItem("java_runner_image_fill") || "cover";
+        imgDiv.style.backgroundSize = fill;
+        imgDiv.style.backgroundPosition = "center center";
+      } catch (_) {}
+    }
   }
 
   function _ensureEditorBgOverlay() {
@@ -819,6 +920,12 @@ const Settings = (() => {
         if (video) video.style.objectFit = fill;
       } catch (_) {}
     } else {
+      // 恢复图片填充方式
+      try {
+        const fill = localStorage.getItem("java_runner_image_fill") || "cover";
+        const imgDiv = document.querySelector("#editor_bg_image");
+        if (imgDiv) { imgDiv.style.backgroundSize = fill; imgDiv.style.backgroundPosition = "center center"; }
+      } catch (_) {}
       _bgList().then(data => {
         if (data.active) { _applyEditorBg(data.active); try { localStorage.setItem("java_runner_bg_active_img", data.active); } catch (_) {} }
       });

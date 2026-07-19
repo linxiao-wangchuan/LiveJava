@@ -57,6 +57,18 @@ const ThemeManager = (() => {
       if (custom) _applyColors(custom.colors);
     }
 
+    // CodeMirror 主题跟随：亮色用 default，暗色用 monokai
+    const cmTheme = (themeId === "light") ? "default" : "monokai";
+    try {
+      if (typeof Editor !== "undefined" && Editor.get()) {
+        Editor.get().setOption("theme", cmTheme);
+      }
+      // Tab 编辑器也要更新
+      if (typeof TabManager !== "undefined" && TabManager.isEnabled()) {
+        TabManager.forEachEditor(ed => ed.setOption("theme", cmTheme));
+      }
+    } catch (_) {}
+
     try { localStorage.setItem("java_runner_theme", themeId); } catch (_) {}
     _syncConfig();
   }

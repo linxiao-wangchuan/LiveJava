@@ -242,6 +242,10 @@ const Editor = (() => {
   // 创建一个独立的 CodeMirror 实例（Tab 用）
   function createInstance(container, initialCode) {
     const cfg = Object.assign({}, DEFAULTS);
+    // 跟随当前 CodeMirror 主题，避免亮色/暗色混乱
+    if (_cm && _cm.getOption("theme")) {
+      cfg.theme = _cm.getOption("theme");
+    }
     const cm = CodeMirror(container, cfg);
     cm.setValue(initialCode || "");
     cm.setSize("100%", "100%");

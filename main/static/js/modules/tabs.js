@@ -30,10 +30,8 @@ const TabManager = (() => {
 
   function disable() {
     _enabled = false;
-    // 先关闭所有 tab
-    while (_tabs.length > 0) {
-      _destroyTab(_tabs[0]);
-    }
+    // 销毁所有 tab 的 DOM
+    _tabs.forEach(t => _destroyTab(t));
     _tabs = [];
     _activePath = null;
     const bar = $tabBar();
@@ -41,7 +39,7 @@ const TabManager = (() => {
     const code = $codeArea();
     if (bar) bar.style.display = "none";
     if (wrap) { wrap.style.display = "none"; wrap.innerHTML = ""; }
-    if (code) code.style.display = "";
+    if (code) code.style.display = "none";
     if ($tabList()) $tabList().innerHTML = "";
   }
 
@@ -158,6 +156,7 @@ const TabManager = (() => {
   }
 
   function getAllTabs() { return _tabs.map(t => ({ path: t.path, title: t.title, dirty: t.dirty })); }
+  function forEachEditor(fn) { _tabs.forEach(t => fn(t.editor)); }
 
   // ── Tab 栏渲染 ──
   function _renderTabBar() {
@@ -202,7 +201,7 @@ const TabManager = (() => {
     enable, disable, isEnabled,
     openTab, closeTab, activateTab,
     getActiveEditor, getActivePath, getActiveTab,
-    getTabContent, getAllTabs,
+    getTabContent, getAllTabs, forEachEditor,
     onActivate,
   };
 })();

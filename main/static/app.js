@@ -398,12 +398,14 @@ function _saveOpenTabs() {
   if (!TabManager.isEnabled()) return;
   const tabs = TabManager.getAllTabs();
   const active = TabManager.getActivePath();
-  try { localStorage.setItem("java_runner_open_tabs", JSON.stringify({ tabs, active })); }
+  const key = "java_runner_open_tabs_" + _currentMode;
+  try { localStorage.setItem(key, JSON.stringify({ tabs, active })); }
   catch (_) {}
 }
 function _restoreOpenTabs() {
   try {
-    const raw = localStorage.getItem("java_runner_open_tabs");
+    const key = "java_runner_open_tabs_" + _currentMode;
+    const raw = localStorage.getItem(key);
     if (!raw) return false;
     const data = JSON.parse(raw);
     const tabs = data.tabs || data;  // 兼容旧格式（纯数组）
@@ -422,7 +424,8 @@ function _restoreOpenTabs() {
       }).then(r => r.json()).then(d => ({ path: t.path, title: t.title, content: d.content || "" }))
     )).then(results => {
       results.forEach(r => {
-        if (r.content !== undefined) {
+        // 只有磁盘上真实存在的文件才恢复 Tab
+        if (r.content !== undefined && r.content !== null && r.content !== "") {
           TabManager.openTab(r.path, r.title, r.content);
         }
       });
@@ -435,7 +438,7 @@ function _restoreOpenTabs() {
   } catch (_) { return false; }
 }
 
-// 页面关闭前保存 Tab 列表和展开状态
+// 页面关闭前保存当前模式 Tab 列表
 window.addEventListener("beforeunload", () => {
   _saveOpenTabs();
 });
@@ -462,11 +465,13 @@ function initModeSwitch() {
       try { localStorage.setItem("java_runner_single_code", Editor.getValue()); } catch (_) {}
     }
     if ((prevMode === "temp_multi" || prevMode === "project") && mode !== prevMode) {
-      _autoSaveCurrentFile();
-      _saveOpenTabs();  // 持久化所有打开的 Tab
+      _saveOpenTabs();  // 持久化 Tab 列表
+      TabManager.disable();  // 清掉旧模式的 Tab
     }
 
     _currentMode = mode;
+    _selectedEntryPath = "";
+    _selectedDirPath = "";
     try { localStorage.setItem("java_runner_mode", mode); } catch (_) {}
     _updateMoveModeVisibility();
 
@@ -915,7 +920,7 @@ let _fileActionsBound = false;
 
 function bindFileActions(mode) {
   _pendingMode = mode;
-  if (_fileActionsBound) return;  // 只绑一次，模式切换不重复绑
+  if (_fileActionsBound) return;
   _fileActionsBound = true;
 
   const $ = (s) => document.querySelector(s);
@@ -1004,13 +1009,13 @@ function bindFileActions(mode) {
 
   // 删除按钮
   const btnDel = document.querySelector("#btn_delete_item");
-  if (btnDel) btnDel.addEventListener("click", () => deleteSelectedItem(mode));
+  if (btnDel) btnDel.addEventListener("click", () => deleteSelectedItem(_pendingMode));
 
   // 清空工作区
   const btnReset = document.querySelector("#btn_reset_workspace");
   if (btnReset) btnReset.addEventListener("click", () => {
     _showConfirm("确认清空整个工作区？所有文件将被删除。", () => {
-      const api = mode === "project" ? null : "/api/temp-workspace/reset";
+      const api = _pendingMode === "project" ? null : "/api/temp-workspace/reset";
       if (!api) return;
       fetch(api, { method: "POST" })
         .then(r => r.json())

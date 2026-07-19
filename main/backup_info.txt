@@ -1,0 +1,9 @@
+Backup Time : 2026-07-18 11:43:25
+Backup Name : main_20260718_114325
+Description : v2.3.0: favicon标签页图标+顶栏logo+Canvas视频缩略图+文件自动同步索引+背景图筛选+上传限制可配置
+Source      : E:\03-development_environment\ForAI\deepseek\00003-javaRuningServer\main
+File Count  : 140
+Size        : 687925.6 KB (671.80 MB)
+Exclude Dirs: .claude, .git, .idea, .vscode, __pycache__, node_modules
+Exclude Files: *.pyc, *.pyo, .DS_Store, Thumbs.db, desktop.ini
+Exclude Cache: comic_cache.json, comic_cache_bw.json, comic_cache_color.json, server_state.json, user_tags.json

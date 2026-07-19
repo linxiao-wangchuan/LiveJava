@@ -25,18 +25,14 @@ from workspace.project_workspace import (
     get_all_java_files as proj_get_java_files,
     get_src_dir, get_out_dir,
 )
-from web.routes import _current_project_dir
+import web.routes as _routes
 
 # 模块级 SocketIO 实例（后台线程 emit 需要）
 _sio = None
-
-
 def _safe_emit(event, data):
     """线程安全的 emit：后台线程通过 _sio.emit() 规避请求上下文限制"""
     if _sio is not None:
         _sio.emit(event, data, namespace="/")
-
-
 def register_socket_events(socketio):
     """注册所有 SocketIO 事件"""
     global _sio
@@ -82,8 +78,6 @@ def register_socket_events(socketio):
         kill_process()
         _safe_emit("output", {"type": "system", "text": "\n[停止] 用户终止了程序。\n"})
         _safe_emit("run_complete", {})
-
-
 # ================================================================
 # 临时单文件模式
 # ================================================================
@@ -108,8 +102,6 @@ def _run_temp_single(code: str, use_framework: bool, imports: str):
     emit("output", {"type": "system", "text": "[运行] 开始执行...\n\n"})
 
     _launch_java(str(TEMP_DIR), class_name)
-
-
 # ================================================================
 # 临时多文件模式
 # ================================================================
@@ -123,8 +115,8 @@ def _run_temp_multi(entry_path: str, use_framework: bool = True, imports: str = 
         emit("run_complete", {})
         return
 
-    # 批量包装：始终自动检测并包装裸片段（不受开关影响）
-    if _auto_wrap_all(all_files, True):
+    # 批量包装：始终自动检测（临时模式用 WORKSPACE_DIR 推导包名）
+    if _auto_wrap_all(all_files, True, WORKSPACE_DIR):
         emit("output", {"type": "system", "text": "[包装] 已为代码片段自动生成类框架\n"})
 
     # 确定运行入口
@@ -148,32 +140,30 @@ def _run_temp_multi(entry_path: str, use_framework: bool = True, imports: str = 
     emit("output", {"type": "system", "text": f"[运行] 运行入口: {class_name}\n\n"})
 
     _launch_java(str(output_dir), class_name)
-
-
 # ================================================================
 # 项目模式
 # ================================================================
 def _run_project(entry_path: str, use_framework: bool = True, imports: str = ""):
     kill_process()
 
-    global _current_project_dir
-    from web.routes import _ensure_project_dir
-    if _ensure_project_dir() is None:
+    
+    
+    if _routes._ensure_project_dir() is None:
         emit("output", {"type": "system", "text": "[错误] 请先打开一个项目文件夹。\n"})
         emit("run_complete", {})
         return
 
-    src_dir = get_src_dir(_current_project_dir)
-    out_dir = get_out_dir(_current_project_dir)
+    src_dir = get_src_dir(_routes._current_project_dir)
+    out_dir = get_out_dir(_routes._current_project_dir)
 
-    all_files = proj_get_java_files(_current_project_dir, src_dir_only=True)
+    all_files = proj_get_java_files(_routes._current_project_dir, src_dir_only=True)
     if not all_files:
         emit("output", {"type": "system", "text": "[错误] src/ 目录下没有找到 .java 文件。\n"})
         emit("run_complete", {})
         return
 
-    # 批量包装：始终自动检测
-    if _auto_wrap_all(all_files, True):
+    # 批量包装：始终自动检测（项目模式用 src_dir 推导包名）
+    if _auto_wrap_all(all_files, True, src_dir):
         emit("output", {"type": "system", "text": "[包装] 已为代码片段自动生成类框架\n"})
 
     entry_file, class_name = _find_entry(all_files, entry_path)
@@ -197,31 +187,29 @@ def _run_project(entry_path: str, use_framework: bool = True, imports: str = "")
     emit("output", {"type": "system", "text": f"[编译] 编译成功 ✓（{len(all_files)} 个文件）\n"})
     emit("output", {"type": "system", "text": f"[运行] 运行入口: {class_name}\n\n"})
 
-    _launch_java(cp, class_name)
-
-
+    _launch_java(cp, class_name, str(src_dir))
 # ================================================================
 # 辅助函数
 # ================================================================
 
-def _launch_java(classpath: str, class_name: str):
+def _launch_java(classpath: str, class_name: str, cwd: str = None):
     """启动 Java 进程（后台线程安全 emit）"""
     run_java(
         classpath=classpath,
         class_name=class_name,
         java_path=get_java(),
+        cwd=cwd,
         on_stdout=lambda t: _safe_emit("output", {"type": "stdout", "text": t}),
         on_stderr=lambda t: _safe_emit("output", {"type": "stderr", "text": t}),
         on_complete=lambda rc: _on_run_complete(rc),
     )
-
-
-def _auto_wrap_all(java_files: list[Path], use_framework: bool) -> bool:
+def _auto_wrap_all(java_files: list[Path], use_framework: bool, base_dir=None) -> bool:
     """
     扫描所有文件：
     - 裸片段 → 包装成独立类
     - 已有类但没有 package 且位于子目录 → 补上 package 声明
     避免不同目录下的同名类因无包声明而冲突。
+    base_dir: 推导包名的基准目录（临时模式用 WORKSPACE_DIR，项目模式用 src_dir）
     """
     if not use_framework:
         return False
@@ -232,7 +220,7 @@ def _auto_wrap_all(java_files: list[Path], use_framework: bool) -> bool:
         except Exception:
             continue
 
-        pkg = _derive_package(f)
+        pkg = _derive_package(f, base_dir)
 
         if is_raw_snippet(content):
             # 裸片段：完整包装
@@ -260,18 +248,15 @@ def _auto_wrap_all(java_files: list[Path], use_framework: bool) -> bool:
             wrapped_any = True
 
     return wrapped_any
-
-
-def _derive_package(file_path: Path) -> str:
-    """根据文件在 WORKSPACE_DIR 下的位置推导包名"""
+def _derive_package(file_path: Path, base_dir=None) -> str:
+    """根据文件在 base_dir 下的位置推导包名"""
+    base = Path(base_dir) if base_dir else WORKSPACE_DIR
     try:
-        rel = file_path.relative_to(WORKSPACE_DIR)
+        rel = file_path.relative_to(base)
     except ValueError:
         return ""
     parts = rel.parts[:-1]  # 去掉文件名
     return ".".join(parts) if parts else ""
-
-
 def _wrap_entry_file(
     java_files: list[Path], preferred: str, imports: str
 ) -> tuple[Path | None, str | None]:
@@ -300,14 +285,10 @@ def _wrap_entry_file(
     wrapper_file = TEMP_DIR / "Main.java"
     wrapper_file.write_text(wrapped_code, encoding="utf-8")
     return wrapper_file, wrapped_code
-
-
 def _detect_package(code: str) -> str:
     """从 Java 代码中提取 package 声明，没有则返回空字符串"""
     m = re.search(r"package\s+([\w.]+)\s*;", code)
     return m.group(1) if m else ""
-
-
 def _find_entry(java_files: list[Path], preferred: str = "") -> tuple[Path | None, str | None]:
     """
     在所有 .java 文件中找到带 main 方法的入口。
@@ -342,8 +323,6 @@ def _find_entry(java_files: list[Path], preferred: str = "") -> tuple[Path | Non
                 return f, fqn
 
     return candidates[0]
-
-
 def _clean_temp_dir():
     """清空临时编译目录（保留 workspace 子目录，但清理 out/ 里的旧 .class）"""
     for f in TEMP_DIR.glob("*"):
@@ -359,8 +338,6 @@ def _clean_temp_dir():
                 shutil.rmtree(f, ignore_errors=True)
         except Exception:
             pass
-
-
 def _on_run_complete(returncode: int):
     _safe_emit("output", {"type": "system", "text": f"\n[完成] 进程已退出，返回码: {returncode}\n"})
     _safe_emit("run_complete", {})
