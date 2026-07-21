@@ -30,6 +30,11 @@
 ### 依赖
 - **Pillow≥10.0** 补入 requirements.txt
 
+### 修复
+- **JDK 热重载** — 保存设置后无需重启服务器，JDK 路径立即生效
+- **设置持久化** — 修复 `_syncConfig` 局部更新覆盖完整配置导致 path_history/模式丢失
+- **load_config 安全** — 读取异常不再覆写 config.json
+
 ---
 
 ## v2.3.1 (2026-07-20)

@@ -163,13 +163,14 @@ const Settings = (() => {
       }
       input.value = "";
       checkSelectedPath();
-      if (!_config) _config = await loadConfig();
+      _config = await loadConfig();
       const javaCfg = {...(_config?.java||{})};
       const history = [...(javaCfg.path_history||[])];
       if (!history.find(e => e.path === path)) {
         history.unshift({path, added_at: new Date().toISOString().slice(0,10), invalid_count:0});
         javaCfg.path_history = history;
-        await saveConfig({..._config, java:javaCfg});
+        _config = {..._config, java:javaCfg};
+        await saveConfig(_config);
       }
       const st = document.querySelector("#settings_status");
       if (st) { st.textContent = "✓ 路径已保存"; setTimeout(()=>{st.textContent="";},2000); }
@@ -271,6 +272,8 @@ const Settings = (() => {
   }
 
   async function saveSettings() {
+    // 先重载配置确保 path_history 等字段是最新的
+    _config = await loadConfig();
     const mode = document.querySelector('input[name="jdk_mode"]:checked')?.value || "env";
     const javaCfg = {...(_config?.java||{}), mode};
     if (mode==="path") {
@@ -285,8 +288,25 @@ const Settings = (() => {
     const newCfg = {..._config, java:javaCfg, theme:ThemeManager.getActive(), custom_themes:ThemeManager.getCustomThemes()};
     const ok = await saveConfig(newCfg);
     const st = document.querySelector("#settings_status");
-    if (ok) { if(st){st.textContent="✓ 设置已保存";setTimeout(()=>{st.textContent="";},2000);} }
-    else { if(st){st.textContent="✗ 保存失败";st.style.color="var(--red)";setTimeout(()=>{st.textContent="";st.style.color="";},3000);} }
+    if (ok) {
+      if (st) { st.textContent = "✓ 设置已保存，JDK 已热重载"; st.style.color = ""; setTimeout(() => { st.textContent = ""; }, 2500); }
+      // 立即刷新面板显示（JDK 路径、版本等）
+      _config = await loadConfig();
+      refreshPanel();
+      // 同步更新顶部栏 Java 版本
+      fetchJavaVersion();
+    } else {
+      if (st) { st.textContent = "✗ 保存失败"; st.style.color = "var(--red)"; setTimeout(() => { st.textContent = ""; st.style.color = ""; }, 3000); }
+    }
+  }
+
+  async function fetchJavaVersion() {
+    try {
+      const r = await fetch("/api/java-version");
+      const d = await r.json();
+      const el = document.querySelector("#java_version");
+      if (el && d.ok) { el.textContent = d.version; el.title = d.version; }
+    } catch (_) {}
   }
 
   async function deleteSelectedPath() {

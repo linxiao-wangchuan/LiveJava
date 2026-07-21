@@ -919,7 +919,7 @@ function openProjectDir(dir) {
         alert(data.error || "无法打开项目目录");
       }
     })
-    .catch(() => alert("请求失败"));
+    .catch((err) => alert("请求失败：" + (err.message || "网络错误，请检查服务器是否运行")));
 }
 
 function buildTreeHTML(items, _depth, _expandTo) {
@@ -1165,7 +1165,7 @@ function _autoSaveCurrentFile() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path, content: code }),
-  }).catch(() => {});
+  }).catch((err) => { console.warn("自动保存失败:", err.message || err); });
 }
 
 function bindTreeClicks() {

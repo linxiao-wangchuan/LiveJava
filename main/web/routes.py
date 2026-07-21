@@ -26,9 +26,11 @@ from config import (
     detect_java_from_path,
     get_current_project_dir,
     load_config,
+    resolve_java,
     save_config,
     scan_relative_jdks,
     set_current_project_dir,
+    set_java_paths,
     update_path_history,
 )
 from core.code_utils import load_template
@@ -227,6 +229,15 @@ def _sync_video_index():
         _write_video_index(idx)
 
 
+def _deep_merge(base: dict, override: dict):
+    """递归合并 override 到 base（修改 base 本身）"""
+    for key, value in override.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+
+
 def register_routes(app: Flask):
     """注册所有 HTTP 路由"""
 
@@ -254,7 +265,17 @@ def register_routes(app: Flask):
     def api_save_config():
         new_cfg = request.get_json()
         if new_cfg:
-            save_config(new_cfg)
+            # 与现有配置合并，防止主题同步等局部更新覆盖完整配置
+            existing = load_config()
+            _deep_merge(existing, new_cfg)
+            _log.info(
+                "保存配置: mode=%s, path_history=%d条",
+                existing.get("java", {}).get("mode", "?"),
+                len(existing.get("java", {}).get("path_history", [])),
+            )
+            save_config(existing)
+            jc, ja = resolve_java(load_config())
+            set_java_paths(jc, ja)
             return jsonify({"ok": True})
         return jsonify({"ok": False, "error": "invalid json"}), 400
 

@@ -79,21 +79,19 @@ DEFAULT_CONFIG = {
 
 def load_config() -> dict:
     """读取 config.json，不存在则创建默认配置"""
+    if not CONFIG_FILE.exists():
+        save_config(DEFAULT_CONFIG)
+        return dict(DEFAULT_CONFIG)
     try:
-        if CONFIG_FILE.exists():
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            # 补全缺失的默认字段
-            merged = {**DEFAULT_CONFIG, **cfg}
-            if "java" in cfg:
-                merged["java"] = {**DEFAULT_CONFIG["java"], **cfg["java"]}
-            return merged
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        merged = {**DEFAULT_CONFIG, **cfg}
+        if "java" in cfg:
+            merged["java"] = {**DEFAULT_CONFIG["java"], **cfg["java"]}
+        return merged
     except Exception:
-        _log.debug("读取 config.json 失败", exc_info=True)
-        pass
-    # 创建默认配置
-    save_config(DEFAULT_CONFIG)
-    return dict(DEFAULT_CONFIG)
+        _log.warning("读取 config.json 失败，使用默认配置", exc_info=True)
+        return dict(DEFAULT_CONFIG)
 
 
 def save_config(cfg: dict):
