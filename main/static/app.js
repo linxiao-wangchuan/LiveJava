@@ -153,12 +153,46 @@ function bindEvents() {
     Console.append("system", "[就绪] 已加载「交互输入」示例。\n");
   });
 
-  // 主题切换按钮 → 打开设置到外观
+  // 生成类骨架按钮
+  $("#btn_skeleton").addEventListener("click", () => {
+    const code = (Editor.get() ? Editor.get().getValue() : "").trim();
+    // 去掉注释和空白后还有代码 → 不生成
+    const codeNoComments = code
+      .replace(/\/\*[\s\S]*?\*\//g, "")  // 块注释
+      .replace(/\/\/.*$/gm, "")           // 行注释
+      .trim();
+    if (codeNoComments) {
+      Console.append("system", "[提示] 文件已有代码，跳过生成。\n");
+      return;
+    }
+    // 从文件名推导类名
+    let className = "Main";
+    if (_currentMode !== "temp_single" && _selectedEntryPath) {
+      className = _selectedEntryPath.replace(/\\/g, "/").split("/").pop().replace(/\.java$/i, "");
+      if (!className || className === _selectedEntryPath) className = "Main";
+    }
+    const skeleton =
+      `public class ${className} {\n` +
+      `    public static void main(String[] args) {\n` +
+      `        \n` +
+      `    }\n` +
+      `}\n`;
+    Editor.setValue(skeleton);
+    Console.append("system", `[就绪] 已生成 ${className} 类骨架。\n`);
+  });
+
+  // 主题切换按钮 → 直接切换亮/暗
   const themeBtn = $("#btn_theme");
   if (themeBtn) {
     themeBtn.addEventListener("click", () => {
-      Settings.openPanel("appearance");
+      const current = ThemeManager.getActive();
+      const next = (current === "light") ? "sublime-dark" : "light";
+      ThemeManager.applyTheme(next);
+      themeBtn.textContent = (next === "light") ? "☀️" : "🌙";
     });
+    // 初始化图标状态
+    const initTheme = ThemeManager.getActive();
+    themeBtn.textContent = (initTheme === "light") ? "☀️" : "🌙";
   }
 
   // Tab 栏折叠按钮
@@ -218,7 +252,21 @@ function bindEvents() {
       return;
     }
 
-    // Ctrl+Alt+← → 上一个 Tab / Ctrl+Alt+→ → 下一个 Tab
+    // Alt+↑/↓ → 折叠/展开 Tab 栏
+    if (!e.ctrlKey && !e.shiftKey && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      const bar = document.querySelector("#tab_bar");
+      const btn = document.querySelector("#btn_toggle_tabs");
+      if (bar && btn) {
+        const collapsed = bar.style.display === "none";
+        if (collapsed) { bar.style.display = "flex"; btn.textContent = "▲"; }
+        else { bar.style.display = "none"; btn.textContent = "▼"; }
+        try { localStorage.setItem("java_runner_tabs_collapsed", collapsed ? "0" : "1"); } catch (_) {}
+      }
+      return;
+    }
+
+    // Alt+←/→ → 上一个 Tab / 下一个 Tab
     if (!e.ctrlKey && !e.shiftKey && e.altKey && e.key === "ArrowRight" && TabManager.isEnabled()) {
       e.preventDefault();
       const tabs = TabManager.getAllTabs();
@@ -599,13 +647,6 @@ function initWrapSwitches() {
   });
 }
 
-function _restoreLastFile(mode) {
-  const lastFile = localStorage.getItem("java_runner_last_file") || "";
-  if (lastFile) {
-    setTimeout(() => loadFileToEditor(lastFile), 300);
-  }
-}
-
 function refreshTempFileTree() {
   fetch("/api/temp-workspace/tree")
     .then(r => r.json())
@@ -627,7 +668,11 @@ function refreshProjectTree() {
     .then(data => {
       const fileTree = $("#file_tree");
       const projPath = $("#project_path");
-      if (data.root && projPath) projPath.textContent = data.root;
+      if (data.root && projPath) {
+        const parts = data.root.replace(/\\/g, "/").replace(/\/$/, "").split("/");
+        projPath.textContent = "📁 " + parts[parts.length - 1];
+        projPath.title = data.root;
+      }
       if (fileTree) fileTree.innerHTML = data.tree
         ? buildTreeHTML(data.tree)
         : '<div class="tree-empty">请先打开项目文件夹</div>';

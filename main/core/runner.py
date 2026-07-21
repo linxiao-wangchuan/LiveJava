@@ -5,10 +5,12 @@ Java 运行器模块
 """
 
 import codecs
-import threading
+import logging
 import subprocess
+import threading
 from typing import Callable
 
+_log = logging.getLogger("runner")
 
 # ============================================================
 # 全局进程状态
@@ -35,22 +37,22 @@ def kill_process():
         try:
             proc.stdin.close()
         except Exception:
-            pass
+            _log.debug("关闭 stdin 失败", exc_info=True)
         # 杀进程
         try:
             proc.kill()
-            proc.wait(timeout=3)  # 等最多 3 秒让它死透
+            proc.wait(timeout=3)
         except Exception:
-            pass
+            _log.debug("终止进程失败", exc_info=True)
         # 关 stdout/stderr，释放读取线程
         try:
             proc.stdout.close()
         except Exception:
-            pass
+            _log.debug("关闭 stdout 失败", exc_info=True)
         try:
             proc.stderr.close()
         except Exception:
-            pass
+            _log.debug("关闭 stderr 失败", exc_info=True)
         _running_process = None
 
 
@@ -97,8 +99,11 @@ def run_java(
     try:
         process = subprocess.Popen(
             [
-                java_path, "-cp", classpath,
-                "-Xmx512m", "-Xms32m",
+                java_path,
+                "-cp",
+                classpath,
+                "-Xmx512m",
+                "-Xms32m",
                 "-Dfile.encoding=UTF-8",
                 "-Dsun.stdout.encoding=UTF-8",
                 "-Dsun.stderr.encoding=UTF-8",
@@ -168,7 +173,7 @@ def run_java(
                 process.kill()
                 process.wait()
             except Exception:
-                pass
+                _log.debug("超时终止进程失败", exc_info=True)
             if on_stderr:
                 on_stderr(f"\n[超时] 程序运行超过 {timeout} 秒，已强制终止。\n")
 
@@ -185,7 +190,7 @@ def run_java(
 
     t_stdout = threading.Thread(target=_read_stdout, daemon=True)
     t_stderr = threading.Thread(target=_read_stderr, daemon=True)
-    t_wait   = threading.Thread(target=_wait,       daemon=True)
+    t_wait = threading.Thread(target=_wait, daemon=True)
 
     t_stdout.start()
     t_stderr.start()

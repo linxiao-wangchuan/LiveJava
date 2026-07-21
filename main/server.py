@@ -4,9 +4,24 @@ Java 本地运行服务器 — 启动入口
 启动: python server.py  → 浏览器打开 http://localhost:5000
 """
 
+import logging
+import subprocess
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+_log = logging.getLogger("server")
+
 from config import (
-    load_config, resolve_java, set_java_paths,
-    update_path_history, TEMP_DIR, MAIN_DIR, PROJECT_DIR,
+    MAIN_DIR,
+    PROJECT_DIR,
+    TEMP_DIR,
+    load_config,
+    resolve_java,
+    set_java_paths,
+    update_path_history,
 )
 from web.app import create_app, init_socketio
 from web.routes import register_routes
@@ -15,12 +30,13 @@ from web.socket_events import register_socket_events
 
 def main():
     # 0. 清理上次残留的 Java 孤儿进程
-    import subprocess as _sp
-    for _exe in ("java.exe", "javac.exe"):
+    for exe in ("java.exe", "javac.exe"):
         try:
-            _sp.run(["taskkill", "/f", "/im", _exe], capture_output=True, timeout=5)
+            subprocess.run(
+                ["taskkill", "/f", "/im", exe], capture_output=True, timeout=5
+            )
         except Exception:
-            pass
+            _log.debug("清理孤儿进程失败: %s", exe)
 
     # 1. 加载配置 + 清理失效路径
     cfg = load_config()
@@ -38,15 +54,12 @@ def main():
     register_routes(app)
     register_socket_events(socketio)
 
-    # 5. 打印信息
-    print("=" * 55)
-    print("  [Java] Java Local Run Server  v2.0")
-    print("=" * 55)
-    print(f"  JAVAC : {javac_path}")
-    print(f"  JAVA  : {java_path}")
-    print(f"  TEMP  : {TEMP_DIR}")
-    print(f"  URL   : http://localhost:5000")
-    print("=" * 55)
+    # 5. 启动日志
+    _log.info("Java Local Run Server v2.0")
+    _log.info("JAVAC: %s", javac_path)
+    _log.info("JAVA:  %s", java_path)
+    _log.info("TEMP:  %s", TEMP_DIR)
+    _log.info("URL:   http://localhost:5000")
 
     # 6. 启动
     socketio.run(

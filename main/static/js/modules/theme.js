@@ -49,41 +49,50 @@ const ThemeManager = (() => {
     document.documentElement.setAttribute("data-theme", themeId);
 
     const preset = PRESETS.find(p => p.id === themeId);
-    if (preset) {
-      loadThemeCSS(preset.file);
-      _clearOverrides();
-    } else {
-      const custom = _customThemes.find(t => t.id === themeId);
-      if (custom) _applyColors(custom.colors);
-    }
+    const loadPromise = preset
+      ? loadThemeCSS(preset.file).then(() => _clearOverrides())
+      : Promise.resolve().then(() => {
+          const custom = _customThemes.find(t => t.id === themeId);
+          if (custom) _applyColors(custom.colors);
+        });
 
-    // CodeMirror 主题跟随：亮色用 default，暗色用 monokai
-    const cmTheme = (themeId === "light") ? "default" : "monokai";
-    try {
-      if (typeof Editor !== "undefined" && Editor.get()) {
-        Editor.get().setOption("theme", cmTheme);
+    // CodeMirror + 蒙版必须在 CSS 加载完成后更新
+    loadPromise.then(() => {
+      const cmTheme = (themeId === "light") ? "default" : "monokai";
+      try {
+        if (typeof Editor !== "undefined" && Editor.get()) {
+          Editor.get().setOption("theme", cmTheme);
+        }
+        if (typeof TabManager !== "undefined" && TabManager.isEnabled()) {
+          TabManager.forEachEditor(ed => ed.setOption("theme", cmTheme));
+        }
+      } catch (_) {}
+      // 通知 settings 更新蒙版颜色
+      if (typeof Settings !== "undefined" && Settings._onThemeChanged) {
+        Settings._onThemeChanged();
       }
-      // Tab 编辑器也要更新
-      if (typeof TabManager !== "undefined" && TabManager.isEnabled()) {
-        TabManager.forEachEditor(ed => ed.setOption("theme", cmTheme));
-      }
-    } catch (_) {}
+      // 更新顶部栏主题按钮图标
+      const btn = document.querySelector("#btn_theme");
+      if (btn) btn.textContent = (themeId === "light") ? "☀️" : "🌙";
+    });
 
     try { localStorage.setItem("java_runner_theme", themeId); } catch (_) {}
     _syncConfig();
   }
 
   function loadThemeCSS(filename) {
-    let el = document.getElementById("theme-dynamic");
-    if (!el) {
-      el = document.createElement("style");
-      el.id = "theme-dynamic";
-      document.head.appendChild(el);
-    }
-    fetch("/static/css/themes/" + filename)
-      .then(r => r.text())
-      .then(css => { el.textContent = css; })
-      .catch(() => {});
+    return new Promise((resolve) => {
+      let el = document.getElementById("theme-dynamic");
+      if (!el) {
+        el = document.createElement("style");
+        el.id = "theme-dynamic";
+        document.head.appendChild(el);
+      }
+      fetch("/static/css/themes/" + filename)
+        .then(r => r.text())
+        .then(css => { el.textContent = css; resolve(); })
+        .catch(() => { resolve(); });
+    });
   }
 
   function _applyColors(colors) {

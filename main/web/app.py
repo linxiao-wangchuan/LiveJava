@@ -5,16 +5,17 @@ Flask 应用工厂
 """
 
 from pathlib import Path
+
 from flask import Flask
 from flask_socketio import SocketIO
 
 _socketio: SocketIO | None = None
 
 # 模板和静态文件目录（相对于本文件 web/app.py）
-_MODULE_DIR = Path(__file__).resolve().parent          # web/
-_MAIN_DIR   = _MODULE_DIR.parent                        # main/
+_MODULE_DIR = Path(__file__).resolve().parent  # web/
+_MAIN_DIR = _MODULE_DIR.parent  # main/
 _TEMPLATE_DIR = _MAIN_DIR / "templates"
-_STATIC_DIR   = _MAIN_DIR / "static"
+_STATIC_DIR = _MAIN_DIR / "static"
 
 
 def create_app() -> Flask:

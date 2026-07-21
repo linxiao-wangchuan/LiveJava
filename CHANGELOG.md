@@ -1,10 +1,53 @@
 # 更新日志 (CHANGELOG)
 
-> 每次备份自动在这里追加。想看详细备份列表 → [backup_log.md](backup_log.md)
+---
+
+## v2.4.0 (2026-07-21)
+
+### 项目结构
+- **scripts/ 工具脚本目录** — backup/release/changelog/monitor 统一管理，menu.py 提供中文菜单
+- **release/archives/** — 历史 ZIP 发布包归档
+- **start.bat 统一菜单** — 默认回车启动服务器，数字选择备份/发布/监控/日志
+- **循环导入打破** — `_current_project_dir` 移至 config.py，消除 routes ↔ socket_events 循环依赖
+- **main.bak 删除**，history 保留
+
+### main/ 架构优化
+- **socket_events.py** 411→265 行（-35%）— 代码预处理函数迁至 core/code_utils.py
+- **workspace 重复消除** — 新建 _base.py 共享 CRUD，temp/project 各减 28-30%
+- **routes.py 清理** — 8 个辅助函数外提模块级，13 处内联 import 全消，`_json`→`json`
+- **死代码删除** — filetree.js（未使用模块）、_restoreLastFile、_wrap_entry_file
+- **代码格式化** — Black + isort + .editorconfig
+- **logging 日志系统** — 5 个模块接入，18 处裸 except 全部追踪
+
+### 前端优化
+- **主题修复** — loadThemeCSS 改为 Promise，解决亮色刷新白底黑蒙版
+- **侧栏丝滑动画** — display:none → opacity 渐隐 + cubic-bezier 缓动
+- **主题按钮** — 🌓 打开设置 → ☀️/🌙 一键切换
+- **设置面板** — 整体放大 15-20%（面板 620px、字体 12-13px）、竖 Tab 记忆位置
+- **背景预览** — 点击卡片侧边大图，双击原尺寸缩放，长按 1.8x 放大
+- **删除确认** — 图片/视频删除弹窗，可关闭
+- **Alt+↑/↓** — 折叠/展开 Tab 栏快捷键
+- **CSS 去重** — 合并 .tree-file/tree-folder.active、删 #editor_wrapper 重复、删 preset-preview/swatch/framework-off 死规则
+- **settings.js 媒体网格合并** — _refreshBgGrid + _refreshVideoGrid → _refreshMediaGrid(type)
+
+### 文档
+- **CONTEXT.md** — 领域术语表（运行模式、JDK 模式、工作区、代码处理、发布备份）
+- **docs/DEVELOPER_GUIDE.md** — 项目结构图更新
+- **scripts/README.md** — 脚本说明
+
+### 体验优化
+- **🧱 生成类骨架按钮** — 空文件/纯注释文件一键插入 `public class + main`，有代码则跳过
+- **项目路径缩写** — 侧栏只显示文件夹名（`📁 MyProject`），悬停看全路径
+- **侧栏按钮缩小** — 打开项目按钮 compact 化
+- **侧栏竖条间距** — 折叠态文字居中 + padding
+- **release/.gitignore** — 补 `archives/`，防止 ZIP 提交到 GitHub
+
+### 依赖
+- **Pillow≥10.0** 补入 requirements.txt
 
 ---
 
-## v2.3.0 (2026-07-20)
+## v2.3.1 (2026-07-20)
 
 **新增**: 8套颜色主题 — Sublime Dark（默认）、亮色（修复全局变亮）、Monokai、One Dark、Dracula、Nord、Gruvbox Dark、Solarized Dark。
 **新增**: 自定义主题编辑器 — 8个核心颜色变量可调，预设不可删，自定义可增删，调色板即时预览。
@@ -24,19 +67,6 @@
 **修复**: 模式切换串台 — `_pendingMode` 闭包冻结、`_selectedEntryPath` 未清零、`_derive_package` 写死 WORKSPACE_DIR、Tab 管理器 `while` 死循环。
 **修复**: 项目模式 `cwd` 路径错误 + `_current_project_dir` 跨模块引用失效。
 **修复**: 文件名含括号/空格导致加载失败、GIF 缩略图生成失败、图片/视频删除按钮无响应。
-
-**新增**: 8套颜色主题 — Sublime Dark（默认）、亮色（修复全局变亮）、Monokai、One Dark、Dracula、Nord、Gruvbox Dark、Solarized Dark。
-**新增**: 自定义主题编辑器 — 8个核心颜色变量可调，预设不可删，自定义可增删，调色板即时预览。
-**新增**: 编辑器背景图系统 — 上传/粘贴/切换/删除，存磁盘 `main/backgrounds/`，缩略图网格管理，「无」选项清空，裁剪/完整填充方式，上传限制可配置（默认 100MB）。
-**新增**: 编辑器背景视频系统 — 📷背景图/🎬背景频模式切换互斥，视频存 `main/background_videos/` 独立目录，支持覆盖/完整填充，音量控制（默认静音），上传限制可配置（默认 150MB）。
-**新增**: 背景蒙版 — 颜色自动跟随当前主题 `--bg-primary`，滑块调节透明度（默认 0.45），图片/视频通用。
-**新增**: 上传限制可配置 — 外观面板直接调整图片/视频上限，前后端同步。
-**重构**: 设置面板改为左竖 Tab（⚙环境 / 🎨外观），🌓 按钮改为打开设置到外观 Tab。
-**修复**: 亮色主题全局变亮（之前只亮了代码区）。
-**修复**: 刷新页面视频自动播放（Chrome autoplay 策略兼容）。
-**新增**: 视频真实缩略图 — Canvas 前端截首帧（上传时）+ ffmpeg 后端抽帧（降级）+ 占位图三级保障。
-**新增**: 文件自动同步 — 运行时拖文件进 background/background_videos 文件夹自动识别，删除即清理索引。
-**新增**: 背景图筛选标签 — 全部/静态/动图分类显示，GIF 卡片带角标。
 **新增**: favicon — 浏览器标签页图标 + 顶栏 logo。
 **修复**: 文件名含括号/空格导致加载失败 — 上传时自动清理特殊字符。
 **修复**: 图片/视频删除按钮无响应 — 事件绑定改为事件委托。

@@ -65,7 +65,10 @@ const Settings = (() => {
     modal.style.display = "flex";
     refreshPanel();
     if (tab) switchTab(tab);
-    else switchTab("env");
+    else {
+      const lastTab = localStorage.getItem("java_runner_settings_tab") || "env";
+      switchTab(lastTab);
+    }
   }
 
   function _takeSnapshot() {
@@ -116,6 +119,7 @@ const Settings = (() => {
     const contentEl = document.querySelector(`#settings_tab_${tabId}`);
     if (tabEl) tabEl.classList.add("active");
     if (contentEl) contentEl.style.display = "block";
+    try { localStorage.setItem("java_runner_settings_tab", tabId); } catch (_) {}
     if (tabId === "appearance") refreshAppearancePanel();
   }
 
@@ -486,6 +490,16 @@ const Settings = (() => {
     if (closeCustomBtn) closeCustomBtn.addEventListener("click", closeCustomEditor);
     if (delCustomBtn) delCustomBtn.addEventListener("click", deleteCustomEditor);
     if (customModal) customModal.addEventListener("click", (e) => { if (e.target===customModal) closeCustomEditor(); });
+
+    // ── 删除警告开关 ──
+    const warnToggle = document.querySelector("#delete_warn_toggle");
+    if (warnToggle) {
+      const saved = localStorage.getItem("java_runner_delete_warn");
+      warnToggle.checked = saved !== "0";
+      warnToggle.addEventListener("change", () => {
+        localStorage.setItem("java_runner_delete_warn", warnToggle.checked ? "1" : "0");
+      });
+    }
   }
 
   function refreshAppearancePanel() {
@@ -551,63 +565,172 @@ const Settings = (() => {
     _refreshVideoGrid();
   }
 
-  async function _refreshBgGrid() {
-    const grid = document.querySelector("#bg_grid");
+  // ── 通用媒体网格渲染（图片 + 视频） ──
+  const MEDIA_CFG = {
+    image: {
+      gridId: "bg_grid", listFn: "_bgList", dataKey: "images",
+      noneTitle: "无背景图", hasFilter: true,
+      cardContent: (item) => {
+        const isGif = item.filename.toLowerCase().endsWith(".gif");
+        return isGif ? '<span class="bg-gif-badge">GIF</span>' : "";
+      },
+      thumbStyle: (thumb) => thumb ? `background-image:url(data:image/jpeg;base64,${thumb})` : "background:var(--bg-tertiary)",
+      delFn: "_bgDelete", activateFn: "_bgActivate",
+      onActivate: (fn) => { _applyEditorBg(fn); try { localStorage.setItem("java_runner_bg_active_img", fn); } catch (_) {} },
+      onClear: () => _applyEditorBg(""),
+    },
+    video: {
+      gridId: "video_grid", listFn: "_videoList", dataKey: "videos",
+      noneTitle: "无背景视频", hasFilter: false,
+      cardContent: (item) => item.thumb ? "" : '<span style="font-size:18px;line-height:50px;text-align:center;display:block;">🎬</span>',
+      thumbStyle: (thumb) => thumb ? `background-image:url(data:image/jpeg;base64,${thumb});background-size:cover;` : "background:var(--bg-tertiary)",
+      delFn: "_videoDelete", activateFn: "_videoActivate",
+      onActivate: (fn) => { if (fn) _applyEditorVideo(fn); else _stopVideo(); },
+      onClear: () => _stopVideo(),
+    },
+  };
+
+  async function _refreshMediaGrid(type) {
+    const cfg = MEDIA_CFG[type];
+    const grid = document.querySelector("#" + cfg.gridId);
     if (!grid) return;
-    const data = await _bgList();
+    const data = await eval(cfg.listFn)();
     const active = data.active || "";
-    // 当前筛选
-    const filterBtn = document.querySelector(".bg-filter-btn.active");
-    const filter = filterBtn ? filterBtn.dataset.filter : "all";
+
+    let filter = "all";
+    if (cfg.hasFilter) {
+      const filterBtn = document.querySelector(".bg-filter-btn.active");
+      filter = filterBtn ? filterBtn.dataset.filter : "all";
+    }
+
     let html = "";
-    // "无" 选项：清空背景图
-    html += `<div class="bg-card bg-none${!active?" active":""}" data-filename="" title="无背景图">
+    html += `<div class="bg-card bg-none${!active ? " active" : ""}" data-filename="" title="${cfg.noneTitle}">
       <span class="bg-card-tick">✓</span>
       <span style="font-size:10px;line-height:50px;text-align:center;display:block;color:var(--text-dim);">无</span>
     </div>`;
-    for (const img of data.images || []) {
-      const isGif = img.filename.toLowerCase().endsWith(".gif");
-      // 筛选
-      if (filter === "gif" && !isGif) continue;
-      if (filter === "static" && isGif) continue;
-      const isActive = img.filename === active;
-      const bgStyle = img.thumb ? `background-image:url(data:image/jpeg;base64,${img.thumb})` : "background:var(--bg-tertiary)";
-      const gifBadge = isGif ? '<span class="bg-gif-badge">GIF</span>' : "";
-      html += `<div class="bg-card${isActive?" active":""}" style="${bgStyle}" data-filename="${img.filename}" title="${img.filename}">
+
+    for (const item of data[cfg.dataKey] || []) {
+      if (cfg.hasFilter) {
+        const isGif = item.filename.toLowerCase().endsWith(".gif");
+        if (filter === "gif" && !isGif) continue;
+        if (filter === "static" && isGif) continue;
+      }
+      const isActive = item.filename === active;
+      const thumbAttr = item.thumb ? ` data-thumb="${item.thumb.replace(/"/g, '&quot;')}"` : "";
+      html += `<div class="bg-card${isActive ? " active" : ""}" style="${cfg.thumbStyle(item.thumb)}" data-filename="${item.filename}" title="${item.filename}"${thumbAttr} data-media-type="${type}">
         <span class="bg-card-tick">✓</span>
-        ${gifBadge}
-        <span class="bg-card-del" data-del="${img.filename}">✕</span>
+        ${cfg.cardContent(item)}
+        <span class="bg-card-del" data-del="${item.filename}">✕</span>
       </div>`;
     }
-    // 保留上传区
+
     const uploadZone = grid.querySelector(".bg-upload-zone");
-    // 清除旧的 bg-card
     grid.querySelectorAll(".bg-card").forEach(c => c.remove());
     if (uploadZone) uploadZone.insertAdjacentHTML("beforebegin", html);
-    // 事件委托
+
     grid.onclick = async (e) => {
       const delBtn = e.target.closest(".bg-card-del");
       if (delBtn) {
         e.stopPropagation();
-        await _bgDelete(delBtn.dataset.del);
-        if (active === delBtn.dataset.del) _applyEditorBg("");
-        _refreshBgGrid();
+        const warnEl = document.querySelector("#delete_warn_toggle");
+        const warnEnabled = warnEl ? warnEl.checked : true;
+        if (warnEnabled && !confirm("确定要删除吗？此操作不可撤销。")) return;
+        await eval(cfg.delFn)(delBtn.dataset.del);
+        if (active === delBtn.dataset.del) cfg.onClear();
+        _refreshMediaGrid(type);
         return;
       }
       const card = e.target.closest(".bg-card");
       if (card && card.dataset.filename !== undefined) {
         const fn = card.dataset.filename;
-        await _bgActivate(fn);
-        _applyEditorBg(fn);
-        try { localStorage.setItem("java_runner_bg_active_img", fn); } catch (_) {}
-        _refreshBgGrid();
+        await eval(cfg.activateFn)(fn);
+        cfg.onActivate(fn);
+        _refreshMediaGrid(type);
       }
     };
+
+    // 点击预览（侧边面板）
+    let _previewOpen = false;
+    let _previewZoom = false;
+    let _longPressTimer = null;
+    const previewPanel = document.querySelector("#bg_preview_panel");
+    const previewImg = document.querySelector("#bg_preview_img");
+    const previewVid = document.querySelector("#bg_preview_video");
+    const previewEmpty = previewPanel ? previewPanel.querySelector(".bg-preview-empty") : null;
+
+    function _clearLongPress() {
+      if (_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+      if (previewImg) previewImg.style.transform = "";
+    }
+
+    function _showPreview(filename, mediaType) {
+      if (!previewPanel) return;
+      previewPanel.style.display = "flex";
+      _previewOpen = true; _previewZoom = false;
+      if (previewImg) { previewImg.style.transform = ""; previewImg.style.objectFit = "contain"; }
+      if (mediaType === "video") {
+        if (previewImg) previewImg.style.display = "none";
+        if (previewVid) { previewVid.style.display = ""; previewVid.src = `/api/background-videos/file/${encodeURIComponent(filename)}`; previewVid.play(); }
+        if (previewEmpty) previewEmpty.style.display = "none";
+      } else {
+        if (previewVid) { previewVid.style.display = "none"; previewVid.pause(); }
+        if (previewImg) { previewImg.style.display = ""; previewImg.src = `/api/backgrounds/file/${encodeURIComponent(filename)}`; }
+        if (previewEmpty) previewEmpty.style.display = "none";
+      }
+    }
+
+    function _closePreview() {
+      if (!previewPanel) return;
+      previewPanel.style.display = "none";
+      previewPanel.classList.remove("zoomed");
+      _previewOpen = false;
+      _clearLongPress();
+      if (previewVid) { previewVid.pause(); previewVid.src = ""; }
+      if (previewImg) { previewImg.src = ""; previewImg.style.transform = ""; }
+    }
+
+    // 双击缩放
+    if (previewPanel) {
+      previewPanel.addEventListener("dblclick", (e) => {
+        if (!_previewOpen) return;
+        _previewZoom = !_previewZoom;
+        const el = previewVid && previewVid.style.display !== "none" ? previewVid : previewImg;
+        if (el) el.style.objectFit = _previewZoom ? "none" : "contain";
+        previewPanel.classList.toggle("zoomed", _previewZoom);
+      });
+      // 长按放大（图片）
+      if (previewImg) {
+        previewImg.addEventListener("mousedown", (e) => {
+          if (!_previewOpen) return;
+          _clearLongPress();
+          _longPressTimer = setTimeout(() => {
+            previewImg.style.transform = "scale(1.8)";
+            previewImg.style.transformOrigin = `${(e.offsetX / previewImg.offsetWidth) * 100}% ${(e.offsetY / previewImg.offsetHeight) * 100}%`;
+          }, 400);
+        });
+        previewImg.addEventListener("mouseup", _clearLongPress);
+        previewImg.addEventListener("mouseleave", _clearLongPress);
+      }
+    }
+
+    grid.querySelectorAll(".bg-card").forEach(card => {
+      card.addEventListener("click", (e) => {
+        // 不拦截删除按钮的点击
+        if (e.target.closest(".bg-card-del")) return;
+        const filename = card.dataset.filename;
+        const mediaType = card.dataset.mediaType;
+        if (!filename || !mediaType) { _closePreview(); return; }
+        _showPreview(filename, mediaType);
+      });
+    });
   }
+
+  function _refreshBgGrid() { return _refreshMediaGrid("image"); }
+  function _refreshVideoGrid() { return _refreshMediaGrid("video"); }
 
   async function _handleBgFile(file) {
     const imgLimit = parseInt(localStorage.getItem("java_runner_image_limit_mb")||"100") * 1024 * 1024;
-if (file.size > imgLimit) { alert(`图片不能超过 ${parseInt(localStorage.getItem("java_runner_image_limit_mb")||"100")}MB`); return; }
+    if (file.size > imgLimit) { alert(`图片不能超过 ${parseInt(localStorage.getItem("java_runner_image_limit_mb")||"100")}MB`); return; }
     const reader = new FileReader();
     reader.onload = async () => {
       const result = await _bgUpload(file.name, reader.result);
@@ -620,11 +743,9 @@ if (file.size > imgLimit) { alert(`图片不能超过 ${parseInt(localStorage.ge
     reader.readAsDataURL(file);
   }
 
-  // ── 视频处理 ──
   async function _handleVideoFile(file) {
     const vidLimit = parseInt(localStorage.getItem("java_runner_video_limit_mb")||"150") * 1024 * 1024;
-if (file.size > vidLimit) { alert(`视频不能超过 ${parseInt(localStorage.getItem("java_runner_video_limit_mb")||"150")}MB`); return; }
-    // Canvas 截首帧
+    if (file.size > vidLimit) { alert(`视频不能超过 ${parseInt(localStorage.getItem("java_runner_video_limit_mb")||"150")}MB`); return; }
     const thumb = await _captureVideoFrame(file);
     const reader = new FileReader();
     reader.onload = async () => {
@@ -648,7 +769,6 @@ if (file.size > vidLimit) { alert(`视频不能超过 ${parseInt(localStorage.ge
         canvas.width = 160; canvas.height = 90;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(video, 0, 0, 160, 90);
-        // Canvas toDataURL 带 data: 前缀，去掉只留纯 base64
         const full = canvas.toDataURL("image/jpeg", 0.6);
         const pure = full.includes("base64,") ? full.split("base64,")[1] : full;
         finish(pure);
@@ -657,50 +777,6 @@ if (file.size > vidLimit) { alert(`视频不能超过 ${parseInt(localStorage.ge
       video.addEventListener("error", () => finish(null));
       setTimeout(() => finish(null), 8000);
     });
-  }
-
-  async function _refreshVideoGrid() {
-    const grid = document.querySelector("#video_grid");
-    if (!grid) return;
-    const data = await _videoList();
-    const active = data.active || "";
-    let html = "";
-    // "无" 选项
-    html += `<div class="bg-card bg-none${!active?" active":""}" data-filename="" title="无背景视频">
-      <span class="bg-card-tick">✓</span>
-      <span style="font-size:10px;line-height:50px;text-align:center;display:block;color:var(--text-dim);">无</span>
-    </div>`;
-    for (const v of data.videos || []) {
-      const isActive = v.filename === active;
-      const bgStyle = v.thumb ? `background-image:url(data:image/jpeg;base64,${v.thumb});background-size:cover;` : "background:var(--bg-tertiary)";
-      const content = v.thumb ? "" : '<span style="font-size:18px;line-height:50px;text-align:center;display:block;">🎬</span>';
-      html += `<div class="bg-card${isActive?" active":""}" style="${bgStyle}" data-filename="${v.filename}" title="${v.filename}">
-        <span class="bg-card-tick">✓</span>
-        ${content}
-        <span class="bg-card-del" data-del="${v.filename}">✕</span>
-      </div>`;
-    }
-    const uploadZone = grid.querySelector(".bg-upload-zone");
-    grid.querySelectorAll(".bg-card").forEach(c => c.remove());
-    if (uploadZone) uploadZone.insertAdjacentHTML("beforebegin", html);
-    // 事件委托：在 grid 上统一监听，更可靠
-    grid.onclick = async (e) => {
-      const delBtn = e.target.closest(".bg-card-del");
-      if (delBtn) {
-        e.stopPropagation();
-        await _videoDelete(delBtn.dataset.del);
-        if (active === delBtn.dataset.del) _stopVideo();
-        _refreshVideoGrid();
-        return;
-      }
-      const card = e.target.closest(".bg-card");
-      if (card && card.dataset.filename !== undefined) {
-        const fn = card.dataset.filename;
-        await _videoActivate(fn);
-        if (fn) _applyEditorVideo(fn); else _stopVideo();
-        _refreshVideoGrid();
-      }
-    };
   }
 
   function _applyEditorVideo(filename) {
@@ -936,5 +1012,6 @@ if (file.size > vidLimit) { alert(`视频不能超过 ${parseInt(localStorage.ge
     loadConfig, saveConfig, checkJavaPath, scanRelativeJdks, getConfig,
     initPanel, refreshPanel, openPanel, switchTab,
     applyMaskOpacity, initBgOverlay,
+    _onThemeChanged: _updateBgMask,
   };
 })();

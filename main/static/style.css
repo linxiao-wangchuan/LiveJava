@@ -383,8 +383,12 @@ html, body {
 }
 .toggle-label:hover { background: var(--btn-hover); border-color: #666; }
 .toggle-label input[type="checkbox"] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
-.toggle-text { font-size: 12px; color: var(--text); white-space: nowrap; }
-.toggle-label.framework-off { border-color: var(--orange); background: #3a3028; }
+.toggle-text { font-size: 13px; color: var(--text); white-space: nowrap; }
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0; cursor: pointer;
+}
+.toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
 /* ── 图标按钮（工具栏用） ── */
 .icon-btn {
@@ -426,24 +430,32 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: width 0.2s, min-width 0.2s;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 #sidebar.collapsed {
   width: 28px;
   min-width: 28px;
 }
+
+/* 折叠时用 opacity 渐隐内容，不用 display:none */
+#sidebar > *:not(#sidebar_collapsed_strip) {
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
 #sidebar.collapsed > *:not(#sidebar_collapsed_strip) {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
-/* 折叠后的窄条：竖向"侧栏"文字 + 点击展开 */
+/* 折叠后的窄条：竖向文字 + 点击展开 */
 #sidebar_collapsed_strip {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
   position: absolute;
   inset: 0;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
+  display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-tertiary);
@@ -453,14 +465,20 @@ html, body {
   color: var(--text-dim);
   font-size: 11px;
   letter-spacing: 2px;
-  transition: background 0.15s;
+  transition: opacity 0.15s ease, background 0.15s;
+}
+#sidebar_collapsed_strip .strip-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 12px 0;
 }
 #sidebar_collapsed_strip:hover {
   background: var(--bg-hover);
   color: var(--accent);
 }
 #sidebar.collapsed #sidebar_collapsed_strip {
-  display: flex;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .sidebar-header {
@@ -520,10 +538,13 @@ html, body {
   border-bottom: 1px solid var(--border);
 }
 .project-path {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-dim);
-  word-break: break-all;
   margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
 }
 
 /* 文件树 */
@@ -579,11 +600,7 @@ html, body {
 }
 .tree-folder.has-kids { font-weight: 500; }
 .tree-file:hover, .tree-folder:hover { background: var(--bg-hover); }
-.tree-file.active {
-  background: #0e639c;
-  color: #ffffff;
-  font-weight: 500;
-}
+.tree-file.active,
 .tree-folder.active {
   background: #0e639c;
   color: #ffffff;
@@ -693,7 +710,7 @@ html, body {
   z-index: 1000;
 }
 .modal-content {
-  width: 520px; max-height: 80vh;
+  width: 620px; max-height: 82vh;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -701,31 +718,49 @@ html, body {
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
+
+/* 预览面板（悬停在 modal-content 右侧） */
+.modal-preview-wrapper {
+  position: relative;
+}
+.bg-preview-panel {
+  position: absolute; left: calc(100% + 12px); top: 0;
+  width: 360px; max-height: 82vh;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 16px; overflow: auto;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  cursor: zoom-in;
+}
+.bg-preview-panel.zoomed { cursor: zoom-out; }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border);
-  font-weight: 600; font-size: 14px; color: var(--text-bright);
+  font-weight: 600; font-size: 15px; color: var(--text-bright);
 }
 .modal-body {
   flex: 1; overflow-y: auto;
-  padding: 16px;
+  padding: 18px 24px;
 }
 .modal-footer {
   display: flex; align-items: center; justify-content: flex-end;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: var(--bg-tertiary);
   border-top: 1px solid var(--border);
 }
 
 .settings-section {
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 .settings-label {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
-  color: var(--text-dim); margin-bottom: 6px;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--text-dim); margin-bottom: 8px;
 }
 /* JDK 设置 Tabs */
 .jdk-tabs {
@@ -735,11 +770,11 @@ html, body {
 }
 .jdk-tab {
   flex: 1; text-align: center;
-  padding: 8px 4px;
+  padding: 10px 6px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.15s;
-  font-size: 12px; color: var(--text-dim);
+  font-size: 13px; color: var(--text-dim);
 }
 .jdk-tab:hover { color: var(--text); background: var(--bg-hover); }
 .jdk-tab:has(input:checked) {
@@ -752,32 +787,32 @@ html, body {
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 10px;
-  margin-bottom: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
 }
 .jdk-section select,
 .jdk-section input[type="text"] {
   width: 100%;
-  padding: 5px 8px;
+  padding: 6px 10px;
   background: var(--bg-primary);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 3px;
-  font-size: 12px;
+  font-size: 13px;
   font-family: var(--font-mono);
 }
 
 .jdk-current {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 10px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
   background: var(--bg-input);
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .jdk-current-label { color: var(--text-dim); }
 .jdk-current code {
   flex: 1;
-  font-size: 11px; color: var(--accent);
+  font-size: 12px; color: var(--accent);
   font-family: var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -800,7 +835,7 @@ html, body {
 #jdk_relative_list .radio-option small { font-size: 10px; color: var(--text-dim); word-break: break-all; }
 
 .jdk-info {
-  font-size: 11px; color: var(--text-dim); padding: 6px 0;
+  font-size: 12px; color: var(--text-dim); padding: 8px 0;
   font-family: var(--font-mono);
 }
 .jdk-info .ok { color: var(--green); }
@@ -821,15 +856,15 @@ select {
    设置面板 — 竖 Tab 布局
    ============================================================ */
 #settings_side_tabs {
-  width: 90px; min-width: 90px;
+  width: 100px; min-width: 100px;
   background: var(--bg-tertiary);
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   padding: 8px 0;
 }
 .side-tab {
-  padding: 10px 12px;
-  font-size: 12px; color: var(--text-dim);
+  padding: 12px 14px;
+  font-size: 13px; color: var(--text-dim);
   cursor: pointer; user-select: none;
   border-left: 2px solid transparent;
   transition: all 0.15s;
@@ -877,8 +912,6 @@ select {
 .preset-card:hover { border-color: var(--accent); transform: translateY(-1px); }
 .preset-card.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(78,201,176,0.3); }
 .preset-card .preset-name { font-weight: 600; margin-bottom: 2px; display: block; }
-.preset-card .preset-preview { display: flex; gap: 2px; margin-top: 4px; justify-content: center; }
-.preset-card .preset-swatch { width: 10px; height: 10px; border-radius: 2px; }
 .preset-card .preset-del {
   position: absolute; top: 2px; right: 4px;
   font-size: 10px; color: var(--red);
@@ -996,8 +1029,30 @@ select {
   background: transparent !important;
   border-right-color: rgba(128,128,128,0.2) !important;
 }
-#editor_wrapper {
-  position: relative;
+/* 背景预览 — 悬停大图面板（浮在设置右侧） */
+.bg-preview-panel {
+  position: absolute; right: -300px; top: 0; bottom: 0;
+  width: 280px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 16px; overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  z-index: 10;
+}
+.bg-preview-empty {
+  font-size: 12px; color: var(--text-dim);
+  text-align: center;
+}
+#bg_preview_img {
+  max-width: 100%; max-height: 360px;
+  object-fit: contain; border-radius: 4px;
+}
+#bg_preview_video {
+  max-width: 100%; max-height: 200px;
+  border-radius: 4px;
 }
 
 /* 自定义主题编辑器 */

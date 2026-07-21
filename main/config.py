@@ -5,36 +5,39 @@
 所有子模块通过此模块获取运行时配置。
 """
 
-import os
 import json
+import logging
+import os
 import shutil
 from pathlib import Path
+
+_log = logging.getLogger("config")
 
 # ============================================================
 # 路径常量
 # ============================================================
-MAIN_DIR    = Path(__file__).resolve().parent          # main/
-PROJECT_DIR = MAIN_DIR.parent                           # 项目根目录
-TEMP_DIR    = MAIN_DIR / "temp"                         # Java 临时编译目录
+MAIN_DIR = Path(__file__).resolve().parent  # main/
+PROJECT_DIR = MAIN_DIR.parent  # 项目根目录
+TEMP_DIR = MAIN_DIR / "temp"  # Java 临时编译目录
 TEMP_DIR.mkdir(exist_ok=True)
 
-WORKSPACE_DIR    = TEMP_DIR / "workspace"               # 临时模式虚拟工作区
+WORKSPACE_DIR = TEMP_DIR / "workspace"  # 临时模式虚拟工作区
 WORKSPACE_DIR.mkdir(exist_ok=True)
 
-CONFIG_FILE = PROJECT_DIR / "config.json"               # 项目配置文件
-JDK_DIR     = PROJECT_DIR / "jdk"                       # 相对模式 JDK 存放目录
-BG_DIR      = MAIN_DIR / "backgrounds"                   # 背景图存放目录
+CONFIG_FILE = PROJECT_DIR / "config.json"  # 项目配置文件
+JDK_DIR = PROJECT_DIR / "jdk"  # 相对模式 JDK 存放目录
+BG_DIR = MAIN_DIR / "backgrounds"  # 背景图存放目录
 BG_DIR.mkdir(exist_ok=True)
-BG_INDEX    = BG_DIR / ".bg_index.json"                 # 背景图索引
-VIDEO_DIR   = MAIN_DIR / "background_videos"             # 背景视频存放目录
+BG_INDEX = BG_DIR / ".bg_index.json"  # 背景图索引
+VIDEO_DIR = MAIN_DIR / "background_videos"  # 背景视频存放目录
 VIDEO_DIR.mkdir(exist_ok=True)
-VIDEO_INDEX = VIDEO_DIR / ".video_index.json"           # 背景视频索引
+VIDEO_INDEX = VIDEO_DIR / ".video_index.json"  # 背景视频索引
 
 # ============================================================
 # Java 路径（运行时设置）
 # ============================================================
 _javac_path: str = "javac"
-_java_path: str  = "java"
+_java_path: str = "java"
 
 
 def get_javac() -> str:
@@ -48,7 +51,7 @@ def get_java() -> str:
 def set_java_paths(javac: str, java: str):
     global _javac_path, _java_path
     _javac_path = javac
-    _java_path  = java
+    _java_path = java
 
 
 # ============================================================
@@ -57,15 +60,15 @@ def set_java_paths(javac: str, java: str):
 
 DEFAULT_CONFIG = {
     "java": {
-        "mode": "env",                          # env | path | relative
-        "path_history": [],                     # [{path, added_at, invalid_count}]
-        "active_path": None,                    # 用户明确选择的 JDK 路径
-        "relative_version": None,               # "jdk-17.0.12"
+        "mode": "env",  # env | path | relative
+        "path_history": [],  # [{path, added_at, invalid_count}]
+        "active_path": None,  # 用户明确选择的 JDK 路径
+        "relative_version": None,  # "jdk-17.0.12"
         "last_valid_javac": None,
         "last_valid_java": None,
     },
     "theme": "dark",
-    "last_mode": "temp_single",                 # temp_single | temp_multi | project
+    "last_mode": "temp_single",  # temp_single | temp_multi | project
     "last_project_dir": "",
     "upload_limits": {
         "java_runner_image_limit_mb": 100,
@@ -86,6 +89,7 @@ def load_config() -> dict:
                 merged["java"] = {**DEFAULT_CONFIG["java"], **cfg["java"]}
             return merged
     except Exception:
+        _log.debug("读取 config.json 失败", exc_info=True)
         pass
     # 创建默认配置
     save_config(DEFAULT_CONFIG)
@@ -103,12 +107,13 @@ def save_config(cfg: dict):
 # JDK 检测
 # ============================================================
 
+
 def _check_java_bin(path: Path) -> tuple[str | None, str | None]:
     """检查一个目录下的 javac 和 java 是否存在，返回 (javac路径, java路径)"""
     javac_exe = path / ("javac.exe" if os.name == "nt" else "javac")
-    java_exe  = path / ("java.exe"  if os.name == "nt" else "java")
+    java_exe = path / ("java.exe" if os.name == "nt" else "java")
     jc = str(javac_exe) if javac_exe.exists() else None
-    ja = str(java_exe)  if java_exe.exists()  else None
+    ja = str(java_exe) if java_exe.exists() else None
     return jc, ja
 
 
@@ -152,12 +157,14 @@ def scan_relative_jdks() -> list[dict]:
     for d in sorted(JDK_DIR.iterdir()):
         if d.is_dir() and d.name.startswith("jdk-"):
             jc, ja = _check_java_bin(d / "bin")
-            results.append({
-                "version": d.name,
-                "javac": jc,
-                "java": ja,
-                "valid": jc is not None and ja is not None,
-            })
+            results.append(
+                {
+                    "version": d.name,
+                    "javac": jc,
+                    "java": ja,
+                    "valid": jc is not None and ja is not None,
+                }
+            )
     return results
 
 
@@ -229,3 +236,31 @@ def update_path_history(cfg: dict):
     # 有效在前，无效沉底
     java_cfg["path_history"] = updated + invalid_entries
     save_config(cfg)
+
+
+# ============================================================
+# 项目工作区状态（供 routes 和 socket_events 共享）
+# ============================================================
+
+_current_project_dir: "Path | None" = None
+
+
+def get_current_project_dir() -> "Path | None":
+    """获取当前打开的项目目录，如果丢了就尝试从 config.json 恢复"""
+    global _current_project_dir
+    if _current_project_dir is None:
+        cfg = load_config()
+        last = cfg.get("last_project_dir", "")
+        if last:
+            from workspace.project_workspace import open_project
+
+            proj = open_project(last)
+            if proj:
+                _current_project_dir = proj
+    return _current_project_dir
+
+
+def set_current_project_dir(path: "Path | None"):
+    """设置当前项目目录"""
+    global _current_project_dir
+    _current_project_dir = path

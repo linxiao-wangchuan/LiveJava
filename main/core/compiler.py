@@ -31,14 +31,17 @@ def compile_java(
 
     cmd = [
         javac_path,
-        "-encoding", "UTF-8",
-        "-d", str(output_dir),
+        "-encoding",
+        "UTF-8",
+        "-d",
+        str(output_dir),
     ] + [str(f) for f in source_files]
 
     try:
         result = subprocess.run(
             cmd,
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
             timeout=timeout,
             cwd=str(output_dir),
         )

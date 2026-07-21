@@ -5,10 +5,16 @@
 模仿 IDEA 风格：src/ 放源码，out/ 放编译输出。
 """
 
-import os
-import shutil
 from pathlib import Path
 
+from workspace._base import create_dir as _base_create_dir
+from workspace._base import create_file as _base_create_file
+from workspace._base import delete_entry as _base_delete_entry
+from workspace._base import get_all_java_files as _base_get_all_java_files
+from workspace._base import list_file_tree as _base_list_file_tree
+from workspace._base import read_file as _base_read_file
+from workspace._base import rename_entry as _base_rename_entry
+from workspace._base import write_file as _base_write_file
 
 SRC_DIR_NAME = "src"
 OUT_DIR_NAME = "out"
@@ -65,88 +71,37 @@ def get_out_dir(project_root: Path) -> Path:
     return d
 
 
-def list_file_tree(project_root: Path) -> list[dict]:
-    """
-    扫描整个项目目录的文件树。
-    返回前端可渲染的嵌套结构。
-    """
-    def _scan(path: Path) -> list[dict]:
-        entries = []
-        try:
-            items = sorted(path.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
-        except PermissionError:
-            return entries
-        for item in items:
-            if item.name.startswith(".") or item.name.endswith(".class"):
-                continue
-            rel = item.relative_to(project_root).as_posix()
-            entry = {"name": item.name, "path": rel}
-            if item.is_dir():
-                entry["type"] = "dir"
-                entry["children"] = _scan(item)
-            else:
-                entry["type"] = "file"
-            entries.append(entry)
-        return entries
+# ── CRUD 委托到 _base ──
 
-    return _scan(project_root)
+
+def list_file_tree(project_root: Path) -> list[dict]:
+    return _base_list_file_tree(project_root)
 
 
 def get_all_java_files(project_root: Path, src_dir_only: bool = True) -> list[Path]:
-    """
-    获取项目中所有 .java 文件。
-    如果 src_dir_only=True，只扫描 src/ 目录。
-    """
     scan_root = get_src_dir(project_root) if src_dir_only else project_root
-    if not scan_root.exists():
-        return []
-    return sorted(scan_root.rglob("*.java"))
+    return _base_get_all_java_files(scan_root)
 
 
 def create_file(project_root: Path, rel_path: str, content: str = "") -> Path:
-    """在项目目录下创建文件"""
-    full = project_root / rel_path
-    full.parent.mkdir(parents=True, exist_ok=True)
-    full.write_text(content, encoding="utf-8")
-    return full
+    return _base_create_file(project_root, rel_path, content)
 
 
 def create_dir(project_root: Path, rel_path: str) -> Path:
-    """在项目目录下创建目录"""
-    full = project_root / rel_path
-    full.mkdir(parents=True, exist_ok=True)
-    return full
+    return _base_create_dir(project_root, rel_path)
 
 
 def read_file(project_root: Path, rel_path: str) -> str:
-    """读取项目目录下的文件"""
-    full = project_root / rel_path
-    if full.exists():
-        return full.read_text(encoding="utf-8")
-    return ""
+    return _base_read_file(project_root, rel_path)
 
 
 def write_file(project_root: Path, rel_path: str, content: str):
-    """写入项目目录下的文件"""
-    full = project_root / rel_path
-    full.parent.mkdir(parents=True, exist_ok=True)
-    full.write_text(content, encoding="utf-8")
+    _base_write_file(project_root, rel_path, content)
 
 
 def delete_entry(project_root: Path, rel_path: str):
-    """删除项目目录下的文件或目录"""
-    full = project_root / rel_path
-    if not full.exists():
-        return
-    if full.is_dir():
-        shutil.rmtree(full)
-    else:
-        full.unlink()
+    _base_delete_entry(project_root, rel_path)
 
 
 def rename_entry(project_root: Path, old_rel: str, new_rel: str):
-    """重命名项目目录下的文件或目录"""
-    old = project_root / old_rel
-    new = project_root / new_rel
-    if old.exists() and not new.exists():
-        old.rename(new)
+    _base_rename_entry(project_root, old_rel, new_rel)
