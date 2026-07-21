@@ -4,43 +4,28 @@
 
 ## v2.4.0 (2026-07-21)
 
-### 项目结构
-- **scripts/ 工具脚本目录** — backup/release/changelog/monitor 统一管理，menu.py 提供中文菜单
-- **release/archives/** — 历史 ZIP 发布包归档
-- **start.bat 统一菜单** — 默认回车启动服务器，数字选择备份/发布/监控/日志
-- **循环导入打破** — `_current_project_dir` 移至 config.py，消除 routes ↔ socket_events 循环依赖
-- **main.bak 删除**，history 保留
-
-### main/ 架构优化
-- **socket_events.py** 411→265 行（-35%）— 代码预处理函数迁至 core/code_utils.py
-- **workspace 重复消除** — 新建 _base.py 共享 CRUD，temp/project 各减 28-30%
-- **routes.py 清理** — 8 个辅助函数外提模块级，13 处内联 import 全消，`_json`→`json`
-- **死代码删除** — filetree.js（未使用模块）、_restoreLastFile、_wrap_entry_file
-- **代码格式化** — Black + isort + .editorconfig
-- **logging 日志系统** — 5 个模块接入，18 处裸 except 全部追踪
+### 架构优化
+- **循环导入打破** — `_current_project_dir` 移至 config.py，routes ↔ socket_events 解耦
+- **socket_events.py** 代码预处理函数迁至 core/code_utils.py，文件瘦身 35%
+- **workspace 重复消除** — 新建 _base.py 共享 CRUD 逻辑
+- **routes.py 清理** — 辅助函数外提、内联 import 全消、`_json`→`json`
+- **logging 日志系统** — 异常可追踪
 
 ### 前端优化
-- **主题修复** — loadThemeCSS 改为 Promise，解决亮色刷新白底黑蒙版
-- **侧栏丝滑动画** — display:none → opacity 渐隐 + cubic-bezier 缓动
-- **主题按钮** — 🌓 打开设置 → ☀️/🌙 一键切换
-- **设置面板** — 整体放大 15-20%（面板 620px、字体 12-13px）、竖 Tab 记忆位置
-- **背景预览** — 点击卡片侧边大图，双击原尺寸缩放，长按 1.8x 放大
-- **删除确认** — 图片/视频删除弹窗，可关闭
+- **主题修复** — 亮色模式刷新页面不再出现白底黑蒙版
+- **侧栏丝滑动画** — 折叠/展开带渐隐过渡效果
+- **主题按钮** — 顶部栏 ☀️/🌙 一键切换亮暗，不再弹设置面板
+- **设置面板** — UI 放大、竖 Tab 记忆上次位置、左右间距拉宽
+- **背景预览** — 点击卡片侧边显示原图，双击原尺寸缩放，长按放大细节
+- **删除确认** — 图片/视频删除前弹窗确认，可在设置中关闭
 - **Alt+↑/↓** — 折叠/展开 Tab 栏快捷键
-- **CSS 去重** — 合并 .tree-file/tree-folder.active、删 #editor_wrapper 重复、删 preset-preview/swatch/framework-off 死规则
-- **settings.js 媒体网格合并** — _refreshBgGrid + _refreshVideoGrid → _refreshMediaGrid(type)
+- **🧱 生成类骨架** — 空文件/纯注释文件一键插入 `public class + main`
+- **项目路径缩写** — 侧栏只显示文件夹名，悬停看全路径
 
-### 文档
-- **CONTEXT.md** — 领域术语表（运行模式、JDK 模式、工作区、代码处理、发布备份）
-- **docs/DEVELOPER_GUIDE.md** — 项目结构图更新
-- **scripts/README.md** — 脚本说明
-
-### 体验优化
-- **🧱 生成类骨架按钮** — 空文件/纯注释文件一键插入 `public class + main`，有代码则跳过
-- **项目路径缩写** — 侧栏只显示文件夹名（`📁 MyProject`），悬停看全路径
-- **侧栏按钮缩小** — 打开项目按钮 compact 化
-- **侧栏竖条间距** — 折叠态文字居中 + padding
-- **release/.gitignore** — 补 `archives/`，防止 ZIP 提交到 GitHub
+### 代码质量
+- **死代码删除** — filetree.js、_restoreLastFile、_wrap_entry_file
+- **Black + isort** — Python 代码统一格式化
+- **CSS 去重** — 清理重复选择器和无用样式
 
 ### 依赖
 - **Pillow≥10.0** 补入 requirements.txt
