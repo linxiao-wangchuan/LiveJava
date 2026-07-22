@@ -303,6 +303,7 @@
       <div id="settings_side_tabs">
         <div class="side-tab active" data-tab="env">⚙ 环境</div>
         <div class="side-tab" data-tab="appearance">🎨 外观</div>
+        <div class="side-tab" data-tab="other">🔧 其他</div>
       </div>
 
       <!-- 右侧内容区 -->
@@ -432,6 +433,47 @@
               <span class="toggle-text">⚠️ 删除图片/视频前弹出确认</span>
               <input type="checkbox" id="delete_warn_toggle" checked>
             </label>
+          </div>
+
+        </div>
+
+        <!-- ═══ 其他 Tab ═══ -->
+        <div id="settings_tab_other" class="settings-tab-content" style="display:none;">
+
+          <div class="appearance-section">
+            <label class="toggle-row">
+              <span class="toggle-text">📄 新建文件后自动打开文件</span>
+              <input type="checkbox" id="auto_open_toggle" checked>
+            </label>
+          </div>
+
+          <div class="appearance-section">
+            <div class="appearance-title">🔒 新建文件后缀锁定</div>
+            <div id="suffix_options" style="margin-top:4px;">
+              <label class="radio-row">
+                <input type="radio" name="file_suffix" value="java" checked>
+                <span>锁定 .java（默认）</span>
+              </label>
+              <label class="radio-row">
+                <input type="radio" name="file_suffix" value="none">
+                <span>不锁定</span>
+              </label>
+              <label class="radio-row">
+                <input type="radio" name="file_suffix" value="custom">
+                <span>自定义后缀</span>
+                <input type="text" id="custom_suffix_input" placeholder=".txt" style="width:80px;margin-left:8px;display:none;" disabled>
+              </label>
+            </div>
+          </div>
+
+          <div class="appearance-section">
+            <label class="toggle-row" style="margin-bottom:8px;">
+              <span class="toggle-text">🧱 新建文件时插入类骨架</span>
+              <input type="checkbox" id="use_template_toggle" checked>
+            </label>
+            <div class="appearance-title" style="margin-bottom:4px;">骨架模板（<code>${class_name}</code> = 文件名去后缀）</div>
+            <textarea id="template_editor" rows="8" style="width:100%;box-sizing:border-box;padding:8px;background:var(--bg-primary);color:var(--text);border:1px solid var(--border);border-radius:4px;font-family:var(--font-mono);font-size:12px;resize:vertical;" spellcheck="false"></textarea>
+            <span id="template_status" style="font-size:10px;color:var(--text-dim);">修改后自动保存</span>
           </div>
 
         </div>

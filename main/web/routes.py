@@ -746,6 +746,39 @@ def register_routes(app: Flask):
         _write_video_index(idx)
         return jsonify({"ok": True})
 
+    # ================================================================
+    # 骨架模板 API
+    # ================================================================
+
+    @app.route("/api/template", methods=["GET"])
+    def api_get_template():
+        from core.code_utils import TEMPLATE_FILE
+
+        if TEMPLATE_FILE.exists():
+            try:
+                return jsonify(
+                    {"ok": True, "content": TEMPLATE_FILE.read_text(encoding="utf-8")}
+                )
+            except Exception:
+                pass
+        return jsonify({"ok": False, "content": ""})
+
+    @app.route("/api/template", methods=["POST"])
+    def api_save_template():
+        data = request.get_json()
+        if not data:
+            return jsonify({"ok": False}), 400
+        content = data.get("content", "")
+        if not content:
+            return jsonify({"ok": False, "error": "empty"}), 400
+        try:
+            from core.code_utils import TEMPLATE_FILE
+
+            TEMPLATE_FILE.write_text(content, encoding="utf-8")
+            return jsonify({"ok": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
+
     @app.route("/api/background-videos/activate", methods=["POST"])
     def api_video_activate():
         data = request.get_json()

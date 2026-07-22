@@ -386,9 +386,32 @@ html, body {
 .toggle-text { font-size: 13px; color: var(--text); white-space: nowrap; }
 .toggle-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 4px 0; cursor: pointer;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: background 0.1s;
 }
+.toggle-row:hover { background: var(--bg-hover); }
 .toggle-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.radio-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; margin-bottom: 2px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  cursor: pointer; font-size: 13px; color: var(--text);
+  transition: background 0.1s;
+}
+.radio-row:hover { background: var(--bg-hover); }
+.radio-row input[type="radio"] { accent-color: var(--accent); }
+#custom_suffix_input {
+  padding: 2px 6px;
+  background: var(--bg-input); color: var(--text);
+  border: 1px solid var(--border); border-radius: 3px;
+  font-size: 12px; font-family: var(--font-mono);
+}
 
 /* ── 图标按钮（工具栏用） ── */
 .icon-btn {
@@ -510,10 +533,10 @@ html, body {
   margin-bottom: 2px;
 }
 .mode-option {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 4px;
+  padding: 1px 6px;
   border-radius: 3px;
   cursor: pointer;
   font-size: 11px;
@@ -676,6 +699,12 @@ html, body {
   padding: 2px 6px;
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+#inline_confirm_msg {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 11px; color: var(--text);
 }
 .inline-prefix {
   font-size: 11px;

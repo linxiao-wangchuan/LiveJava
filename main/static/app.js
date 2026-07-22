@@ -985,7 +985,9 @@ function bindFileActions(mode) {
     if (inlineBar) inlineBar.style.display = "flex";
     if (inlineField) {
       inlineField.value = "";
-      inlineField.placeholder = type === "file" ? "文件名，如 Dog.java" : "目录名，如 com/example";
+      const suf = localStorage.getItem("java_runner_file_suffix") || "java";
+      const ext = suf === "none" ? "" : (suf === "java" ? ".java" : suf);
+      inlineField.placeholder = type === "file" ? `文件名，如 Dog${ext}` : "目录名，如 com/example";
       setTimeout(() => inlineField.focus(), 50);
     }
   }
@@ -1006,14 +1008,20 @@ function bindFileActions(mode) {
 
     if (_pendingAction === "file") {
       const api = _pendingMode === "project" ? "/api/project/create-file" : "/api/temp-workspace/create-file";
-      let path = name.includes(".") ? name : name + ".java";
+      // 后缀锁定：根据设置决定默认后缀
+      const suffix = localStorage.getItem("java_runner_file_suffix") || "java";
+      let path = name;
+      if (suffix === "java") {
+        path = name.includes(".") ? name : name + ".java";
+      } else if (suffix !== "none") {
+        path = name.includes(".") ? name : name + suffix;
+      }
       if (_selectedDirPath && !path.includes("/")) {
         path = _selectedDirPath + "/" + path;
       }
-      // 自动包装关闭时用模板，开启时只放注释
-      const useTemplate = !_getWrapEnabled();
-      // 记录目标路径，刷新后自动展开到该文件
+      const useTemplate = localStorage.getItem("java_runner_use_template") !== "0";
       _expandToPath = path;
+      const autoOpen = localStorage.getItem("java_runner_auto_open") !== "0";
       fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1021,6 +1029,13 @@ function bindFileActions(mode) {
       }).then(r => r.json()).then(() => {
         if (_pendingMode === "project") refreshProjectTree();
         else refreshTempFileTree();
+        // 自动打开新文件
+        if (autoOpen) {
+          _selectedEntryPath = path;
+          const lastSlash = path.lastIndexOf("/");
+          _selectedDirPath = lastSlash >= 0 ? path.substring(0, lastSlash) : "";
+          setTimeout(() => loadFileToEditor(path), 200);
+        }
       });
     } else if (_pendingAction === "dir") {
       const api = _pendingMode === "project" ? "/api/project/create-dir" : "/api/temp-workspace/create-dir";
@@ -1096,6 +1111,7 @@ function _showConfirm(msg, onYes) {
   if (!bar || !msgEl) return onYes(); // 回退
 
   msgEl.textContent = msg;
+  msgEl.title = msg;
   bar.style.display = "flex";
 
   function cleanup() {
@@ -1181,8 +1197,8 @@ function bindTreeClicks() {
         .forEach(e => e.classList.remove("active"));
       el.classList.add("active");
       _selectedEntryPath = path;
+      _selectedDirPath = "";
       const lastSlash = path.lastIndexOf("/");
-      _selectedDirPath = lastSlash >= 0 ? path.substring(0, lastSlash) : "";
       Console.append("system", `[文件] 已选中 "${path}"，新建将创建在 "${_selectedDirPath || "(根目录)"}"\n`);
       loadFileToEditor(path);
     });
@@ -1226,6 +1242,7 @@ function bindTreeClicks() {
         .forEach(e => e.classList.remove("active"));
       el.classList.add("active");
       _selectedDirPath = el.dataset.path || "";
+      _selectedEntryPath = "";
       Console.append("system", `[目录] 已选中 "${_selectedDirPath || "/"}"，新建将创建在此目录下\n`);
     });
   });

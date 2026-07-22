@@ -520,6 +520,92 @@ const Settings = (() => {
         localStorage.setItem("java_runner_delete_warn", warnToggle.checked ? "1" : "0");
       });
     }
+
+    // ── 其他设置 ──
+    const autoOpenToggle = document.querySelector("#auto_open_toggle");
+    if (autoOpenToggle) {
+      autoOpenToggle.checked = localStorage.getItem("java_runner_auto_open") !== "0";
+      autoOpenToggle.addEventListener("change", () => {
+        localStorage.setItem("java_runner_auto_open", autoOpenToggle.checked ? "1" : "0");
+      });
+    }
+
+    const suffixRadios = document.querySelectorAll('input[name="file_suffix"]');
+    const customInput = document.querySelector("#custom_suffix_input");
+    const savedSuffix = localStorage.getItem("java_runner_file_suffix") || "java";
+    suffixRadios.forEach(r => {
+      if (r.value === savedSuffix || (r.value === "custom" && !["java","none"].includes(savedSuffix))) {
+        r.checked = true;
+        if (r.value === "custom" && !["java","none"].includes(savedSuffix)) {
+          if (customInput) { customInput.style.display = ""; customInput.disabled = false; customInput.value = savedSuffix; }
+        }
+      }
+      r.addEventListener("change", () => {
+        if (r.value === "java") {
+          localStorage.setItem("java_runner_file_suffix", "java");
+          if (customInput) { customInput.style.display = "none"; customInput.disabled = true; }
+        } else if (r.value === "none") {
+          localStorage.setItem("java_runner_file_suffix", "none");
+          if (customInput) { customInput.style.display = "none"; customInput.disabled = true; }
+        }
+      });
+    });
+    if (customInput) {
+      customInput.addEventListener("input", () => {
+        const v = customInput.value.trim();
+        if (v) localStorage.setItem("java_runner_file_suffix", v.startsWith(".") ? v : "." + v);
+      });
+      // 点击「自定义后缀」radio 时聚焦输入框
+      const customRadio = document.querySelector('input[name="file_suffix"][value="custom"]');
+      if (customRadio) {
+        customRadio.addEventListener("change", () => {
+          if (customRadio.checked) {
+            customInput.style.display = "";
+            customInput.disabled = false;
+            customInput.focus();
+            const v = customInput.value.trim();
+            if (v) localStorage.setItem("java_runner_file_suffix", v.startsWith(".") ? v : "." + v);
+            else localStorage.setItem("java_runner_file_suffix", ".txt");
+          }
+        });
+      }
+    }
+
+    // ── 骨架模板 ──
+    const useTemplateToggle = document.querySelector("#use_template_toggle");
+    const templateEditor = document.querySelector("#template_editor");
+    const templateStatus = document.querySelector("#template_status");
+    if (useTemplateToggle) {
+      useTemplateToggle.checked = localStorage.getItem("java_runner_use_template") !== "0";
+      useTemplateToggle.addEventListener("change", () => {
+        localStorage.setItem("java_runner_use_template", useTemplateToggle.checked ? "1" : "0");
+      });
+    }
+    let _templateSaveTimer = null;
+    if (templateEditor && templateStatus) {
+      // 加载模板
+      fetch("/api/template")
+        .then(r => r.json())
+        .then(d => { if (d.ok && d.content) templateEditor.value = d.content; })
+        .catch(() => {});
+      // 输入后 1 秒自动保存
+      templateEditor.addEventListener("input", () => {
+        clearTimeout(_templateSaveTimer);
+        _templateSaveTimer = setTimeout(async () => {
+          try {
+            const r = await fetch("/api/template", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content: templateEditor.value }),
+            });
+            const d = await r.json();
+            templateStatus.textContent = d.ok ? "✓ 已保存" : "✗ 保存失败";
+            templateStatus.style.color = d.ok ? "" : "var(--red)";
+            setTimeout(() => { templateStatus.textContent = "修改后自动保存"; templateStatus.style.color = ""; }, 2000);
+          } catch (_) {}
+        }, 1000);
+      });
+    }
   }
 
   function refreshAppearancePanel() {
